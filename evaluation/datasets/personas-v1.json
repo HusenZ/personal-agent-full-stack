@@ -1,0 +1,1215 @@
+{
+  "name": "personas-v1",
+  "version": "1",
+  "reviewed": false,
+  "personas": [
+    {
+      "key": "maya",
+      "timezone": "Europe/London",
+      "goals": [
+        "Run a half marathon in under two hours",
+        "Reach conversational Spanish"
+      ],
+      "constraints": [
+        "Only free after 7pm on weekdays",
+        "Recovering from a knee injury"
+      ],
+      "preferences": {
+        "tone": "direct",
+        "length": "short"
+      },
+      "memories": [
+        {
+          "key": "knee",
+          "content": "My left knee flares up when I run downhill",
+          "memory_type": "constraint",
+          "importance": 0.8,
+          "days_ago": 30
+        },
+        {
+          "key": "physio",
+          "content": "My physiotherapist said to keep long runs on flat routes",
+          "memory_type": "fact",
+          "importance": 0.7,
+          "days_ago": 20
+        },
+        {
+          "key": "cat",
+          "content": "My cat is called Pixel and she wakes me at 5am",
+          "memory_type": "fact",
+          "importance": 0.4,
+          "days_ago": 60
+        },
+        {
+          "key": "vegetarian",
+          "content": "I have been vegetarian for six years",
+          "memory_type": "preference",
+          "importance": 0.7,
+          "days_ago": 90
+        },
+        {
+          "key": "job",
+          "content": "I work as a backend engineer at a logistics startup",
+          "memory_type": "fact",
+          "importance": 0.5,
+          "days_ago": 120
+        },
+        {
+          "key": "overtime",
+          "content": "Release weeks at work leave me exhausted and I skip training",
+          "memory_type": "experience",
+          "importance": 0.7,
+          "days_ago": 14
+        },
+        {
+          "key": "tutor",
+          "content": "I practise Spanish with a tutor called Lucía on Saturday mornings",
+          "memory_type": "plan",
+          "importance": 0.6,
+          "days_ago": 25
+        },
+        {
+          "key": "sleep",
+          "content": "I sleep badly when I train late in the evening",
+          "memory_type": "experience",
+          "importance": 0.6,
+          "days_ago": 8
+        },
+        {
+          "key": "shoes",
+          "content": "I replaced my running shoes in August after 600 miles",
+          "memory_type": "event",
+          "importance": 0.3,
+          "days_ago": 40
+        },
+        {
+          "key": "coffee",
+          "content": "I prefer oat milk flat whites",
+          "memory_type": "preference",
+          "importance": 0.2,
+          "days_ago": 50
+        },
+        {
+          "key": "sister",
+          "content": "My sister Hannah lives in Valencia",
+          "memory_type": "fact",
+          "importance": 0.4,
+          "days_ago": 100
+        },
+        {
+          "key": "podcasts",
+          "content": "I listen to Spanish podcasts while running",
+          "memory_type": "experience",
+          "importance": 0.5,
+          "days_ago": 12
+        }
+      ],
+      "events": [
+        {
+          "activity": "running",
+          "description": "Ran 5 km",
+          "days_ago": 1,
+          "quantity": 5,
+          "unit": "km"
+        },
+        {
+          "activity": "running",
+          "description": "Ran 8 km",
+          "days_ago": 3,
+          "quantity": 8,
+          "unit": "km"
+        },
+        {
+          "activity": "running",
+          "description": "Ran 12 km",
+          "days_ago": 5,
+          "quantity": 12,
+          "unit": "km"
+        },
+        {
+          "activity": "running",
+          "description": "Ran 10 km",
+          "days_ago": 9,
+          "quantity": 10,
+          "unit": "km"
+        },
+        {
+          "activity": "spanish",
+          "description": "Spanish lesson",
+          "days_ago": 2,
+          "quantity": 1.5,
+          "unit": "hours"
+        },
+        {
+          "activity": "spanish",
+          "description": "Spanish practice",
+          "days_ago": 6,
+          "quantity": 1,
+          "unit": "hours"
+        },
+        {
+          "activity": "spanish",
+          "description": "Spanish lesson",
+          "days_ago": 12,
+          "quantity": 2,
+          "unit": "hours"
+        }
+      ]
+    },
+    {
+      "key": "tomas",
+      "timezone": "America/New_York",
+      "goals": [
+        "Pass my qualifying exams in December",
+        "Sleep seven hours a night"
+      ],
+      "constraints": [
+        "Living on a tight graduate stipend",
+        "Teaching assistant duties on Tuesdays and Thursdays"
+      ],
+      "preferences": {
+        "tone": "encouraging"
+      },
+      "memories": [
+        {
+          "key": "procrastinate",
+          "content": "I procrastinate by reorganising my notes instead of doing practice problems",
+          "memory_type": "experience",
+          "importance": 0.7,
+          "days_ago": 10
+        },
+        {
+          "key": "insomnia",
+          "content": "I lie awake worrying about exams most nights",
+          "memory_type": "experience",
+          "importance": 0.8,
+          "days_ago": 5
+        },
+        {
+          "key": "cello",
+          "content": "I play the cello in a string quartet on Wednesday evenings",
+          "memory_type": "fact",
+          "importance": 0.5,
+          "days_ago": 60
+        },
+        {
+          "key": "elena",
+          "content": "My partner Elena is a nurse who works night shifts",
+          "memory_type": "fact",
+          "importance": 0.6,
+          "days_ago": 90
+        },
+        {
+          "key": "library",
+          "content": "I focus best on the quiet floor of the engineering library",
+          "memory_type": "preference",
+          "importance": 0.6,
+          "days_ago": 30
+        },
+        {
+          "key": "topology",
+          "content": "Algebraic topology is my weakest exam subject",
+          "memory_type": "fact",
+          "importance": 0.8,
+          "days_ago": 15
+        },
+        {
+          "key": "advisor",
+          "content": "My advisor Dr. Okafor wants a draft chapter by November",
+          "memory_type": "fact",
+          "importance": 0.7,
+          "days_ago": 20
+        },
+        {
+          "key": "caffeine",
+          "content": "Coffee after 3pm keeps me up at night",
+          "memory_type": "experience",
+          "importance": 0.6,
+          "days_ago": 25
+        },
+        {
+          "key": "pomodoro",
+          "content": "Pomodoro sessions of 50 minutes worked well for me last semester",
+          "memory_type": "experience",
+          "importance": 0.5,
+          "days_ago": 70
+        },
+        {
+          "key": "budget",
+          "content": "I can't afford paid tutoring this term",
+          "memory_type": "constraint",
+          "importance": 0.6,
+          "days_ago": 18
+        },
+        {
+          "key": "studygroup",
+          "content": "I meet a study group of three classmates on Sundays",
+          "memory_type": "fact",
+          "importance": 0.5,
+          "days_ago": 22
+        }
+      ],
+      "events": [
+        {
+          "activity": "study",
+          "description": "Studied for exams",
+          "days_ago": 0,
+          "quantity": 3,
+          "unit": "hours"
+        },
+        {
+          "activity": "study",
+          "description": "Studied for exams",
+          "days_ago": 2,
+          "quantity": 2,
+          "unit": "hours"
+        },
+        {
+          "activity": "study",
+          "description": "Studied for exams",
+          "days_ago": 4,
+          "quantity": 4,
+          "unit": "hours"
+        },
+        {
+          "activity": "study",
+          "description": "Studied for exams",
+          "days_ago": 8,
+          "quantity": 1.5,
+          "unit": "hours"
+        },
+        {
+          "activity": "cello",
+          "description": "Cello practice",
+          "days_ago": 1,
+          "quantity": 1,
+          "unit": "hours"
+        },
+        {
+          "activity": "cello",
+          "description": "Cello practice",
+          "days_ago": 5,
+          "quantity": 1,
+          "unit": "hours"
+        }
+      ]
+    },
+    {
+      "key": "aisha",
+      "timezone": "Europe/Lisbon",
+      "goals": [
+        "Grow the bakery to 50 weekly orders",
+        "Read twelve books this year"
+      ],
+      "constraints": [
+        "Six-month-old baby at home",
+        "Severe nut allergy"
+      ],
+      "preferences": {
+        "length": "detailed"
+      },
+      "memories": [
+        {
+          "key": "baby",
+          "content": "My daughter Noor was born in March",
+          "memory_type": "fact",
+          "importance": 0.8,
+          "days_ago": 150
+        },
+        {
+          "key": "bakery",
+          "content": "I run a sourdough bakery from home called Crumb & Co",
+          "memory_type": "fact",
+          "importance": 0.7,
+          "days_ago": 100
+        },
+        {
+          "key": "allergy",
+          "content": "I am severely allergic to tree nuts and peanuts",
+          "memory_type": "constraint",
+          "importance": 0.9,
+          "days_ago": 200
+        },
+        {
+          "key": "market",
+          "content": "I sell at the Campo de Ourique market on Saturdays",
+          "memory_type": "fact",
+          "importance": 0.6,
+          "days_ago": 40
+        },
+        {
+          "key": "work",
+          "content": "I went back to my accounting job three days a week in September",
+          "memory_type": "fact",
+          "importance": 0.6,
+          "days_ago": 30
+        },
+        {
+          "key": "reading",
+          "content": "I only manage to read on my phone during night feeds",
+          "memory_type": "experience",
+          "importance": 0.5,
+          "days_ago": 12
+        },
+        {
+          "key": "starter",
+          "content": "My sourdough starter is named Bubbles and is eight years old",
+          "memory_type": "fact",
+          "importance": 0.3,
+          "days_ago": 80
+        },
+        {
+          "key": "orders",
+          "content": "The bakery currently gets about 30 orders a week",
+          "memory_type": "fact",
+          "importance": 0.6,
+          "days_ago": 9
+        },
+        {
+          "key": "tired",
+          "content": "I feel exhausted by Thursday every week",
+          "memory_type": "experience",
+          "importance": 0.6,
+          "days_ago": 6
+        },
+        {
+          "key": "husband",
+          "content": "My husband Rui handles the morning nursery drop-off",
+          "memory_type": "fact",
+          "importance": 0.5,
+          "days_ago": 35
+        },
+        {
+          "key": "instagram",
+          "content": "I want to start posting baking videos on Instagram",
+          "memory_type": "plan",
+          "importance": 0.5,
+          "days_ago": 16
+        }
+      ],
+      "events": [
+        {
+          "activity": "baking",
+          "description": "Baked loaves for orders",
+          "days_ago": 1,
+          "quantity": 24,
+          "unit": "loaves"
+        },
+        {
+          "activity": "baking",
+          "description": "Baked loaves for the market",
+          "days_ago": 6,
+          "quantity": 30,
+          "unit": "loaves"
+        },
+        {
+          "activity": "baking",
+          "description": "Baked loaves for orders",
+          "days_ago": 10,
+          "quantity": 20,
+          "unit": "loaves"
+        },
+        {
+          "activity": "reading",
+          "description": "Read a novel",
+          "days_ago": 2,
+          "quantity": 40,
+          "unit": "pages"
+        },
+        {
+          "activity": "reading",
+          "description": "Read a novel",
+          "days_ago": 4,
+          "quantity": 25,
+          "unit": "pages"
+        }
+      ]
+    },
+    {
+      "key": "jun",
+      "timezone": "Asia/Tokyo",
+      "goals": [
+        "Play a full Chopin nocturne by spring",
+        "Walk 8,000 steps a day"
+      ],
+      "constraints": [
+        "Type 2 diabetes managed with diet",
+        "Arthritis in both hands"
+      ],
+      "preferences": {
+        "tone": "patient"
+      },
+      "memories": [
+        {
+          "key": "piano",
+          "content": "I started learning piano at 66 after retiring from teaching",
+          "memory_type": "fact",
+          "importance": 0.5,
+          "days_ago": 200
+        },
+        {
+          "key": "hands",
+          "content": "My fingers stiffen on cold mornings because of arthritis",
+          "memory_type": "constraint",
+          "importance": 0.8,
+          "days_ago": 20
+        },
+        {
+          "key": "diet",
+          "content": "I avoid white rice and sweets to keep my blood sugar stable",
+          "memory_type": "constraint",
+          "importance": 0.8,
+          "days_ago": 60
+        },
+        {
+          "key": "balcony",
+          "content": "I grow cherry tomatoes and shiso on my balcony",
+          "memory_type": "fact",
+          "importance": 0.4,
+          "days_ago": 45
+        },
+        {
+          "key": "grandkids",
+          "content": "My grandchildren Haru and Mei visit every other Sunday",
+          "memory_type": "fact",
+          "importance": 0.6,
+          "days_ago": 70
+        },
+        {
+          "key": "walkgroup",
+          "content": "I walk with a neighbourhood group along the river on Monday mornings",
+          "memory_type": "fact",
+          "importance": 0.5,
+          "days_ago": 30
+        },
+        {
+          "key": "teacher",
+          "content": "I taught high school chemistry for 35 years",
+          "memory_type": "fact",
+          "importance": 0.4,
+          "days_ago": 300
+        },
+        {
+          "key": "nocturne",
+          "content": "I am practising Chopin's Nocturne in E-flat major",
+          "memory_type": "plan",
+          "importance": 0.7,
+          "days_ago": 15
+        },
+        {
+          "key": "metronome",
+          "content": "Practising slowly with a metronome helped my left hand",
+          "memory_type": "experience",
+          "importance": 0.6,
+          "days_ago": 10
+        },
+        {
+          "key": "tea",
+          "content": "I drink genmaicha in the afternoon",
+          "memory_type": "preference",
+          "importance": 0.2,
+          "days_ago": 90
+        },
+        {
+          "key": "doctor",
+          "content": "My doctor asked me to check my blood sugar after long walks",
+          "memory_type": "fact",
+          "importance": 0.8,
+          "days_ago": 25
+        }
+      ],
+      "events": [
+        {
+          "activity": "walking",
+          "description": "Walked by the river",
+          "days_ago": 1,
+          "quantity": 9000,
+          "unit": "steps"
+        },
+        {
+          "activity": "walking",
+          "description": "Walked to the market",
+          "days_ago": 3,
+          "quantity": 6500,
+          "unit": "steps"
+        },
+        {
+          "activity": "walking",
+          "description": "Walked with the group",
+          "days_ago": 5,
+          "quantity": 8200,
+          "unit": "steps"
+        },
+        {
+          "activity": "walking",
+          "description": "Long walk",
+          "days_ago": 11,
+          "quantity": 10000,
+          "unit": "steps"
+        },
+        {
+          "activity": "piano",
+          "description": "Piano practice",
+          "days_ago": 0,
+          "quantity": 45,
+          "unit": "minutes"
+        },
+        {
+          "activity": "piano",
+          "description": "Piano practice",
+          "days_ago": 2,
+          "quantity": 30,
+          "unit": "minutes"
+        },
+        {
+          "activity": "piano",
+          "description": "Piano practice",
+          "days_ago": 4,
+          "quantity": 60,
+          "unit": "minutes"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "id": "maya-knee",
+      "persona": "maya",
+      "question": "Why does my knee hurt when I run downhill?",
+      "category": "direct",
+      "relevant": {
+        "knee": 2,
+        "physio": 1
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "maya-routes",
+      "persona": "maya",
+      "question": "Which kind of routes should I pick for my long runs?",
+      "category": "paraphrase",
+      "relevant": {
+        "physio": 2,
+        "knee": 1
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "maya-pixel",
+      "persona": "maya",
+      "question": "What time does Pixel usually wake me up?",
+      "category": "named",
+      "relevant": {
+        "cat": 2
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "maya-missed-workouts",
+      "persona": "maya",
+      "question": "Why do I keep missing workouts some weeks?",
+      "category": "paraphrase",
+      "relevant": {
+        "overtime": 2,
+        "sleep": 1
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "maya-dinner",
+      "persona": "maya",
+      "question": "Can you suggest a high-protein dinner that fits how I eat?",
+      "category": "paraphrase",
+      "relevant": {
+        "vegetarian": 2
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "maya-lucia",
+      "persona": "maya",
+      "question": "When are my lessons with Lucía?",
+      "category": "named",
+      "relevant": {
+        "tutor": 2
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "maya-spanish-ideas",
+      "persona": "maya",
+      "question": "What else could I do to get better at Spanish?",
+      "category": "multi",
+      "relevant": {
+        "tutor": 2,
+        "podcasts": 2,
+        "sister": 1
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "maya-shoes",
+      "persona": "maya",
+      "question": "When did I last replace my running shoes?",
+      "category": "direct",
+      "relevant": {
+        "shoes": 2
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "maya-valencia",
+      "persona": "maya",
+      "question": "Who do I know in Valencia?",
+      "category": "named",
+      "relevant": {
+        "sister": 2
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "maya-run-distance",
+      "persona": "maya",
+      "question": "How far did I run in the last 7 days?",
+      "category": "temporal",
+      "relevant": {},
+      "expected_needs": [
+        "totals"
+      ],
+      "expected_figures": [
+        25
+      ],
+      "notes": "5 + 8 + 12 km; the 10 km run 9 days ago is outside the range."
+    },
+    {
+      "id": "maya-spanish-hours",
+      "persona": "maya",
+      "question": "How many hours of Spanish did I study in the last 7 days?",
+      "category": "temporal",
+      "relevant": {},
+      "expected_needs": [
+        "totals"
+      ],
+      "expected_figures": [
+        2.5
+      ],
+      "notes": "1.5 + 1 hours; the lesson 12 days ago is outside."
+    },
+    {
+      "id": "maya-car",
+      "persona": "maya",
+      "question": "What colour is my car?",
+      "category": "unanswerable",
+      "relevant": {},
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "tomas-sleep",
+      "persona": "tomas",
+      "question": "Why can't I fall asleep at night?",
+      "category": "paraphrase",
+      "relevant": {
+        "insomnia": 2,
+        "caffeine": 2
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "tomas-wasted-time",
+      "persona": "tomas",
+      "question": "How do I stop wasting my study time?",
+      "category": "paraphrase",
+      "relevant": {
+        "procrastinate": 2,
+        "pomodoro": 1
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "tomas-weakest",
+      "persona": "tomas",
+      "question": "Which exam subject am I weakest in?",
+      "category": "direct",
+      "relevant": {
+        "topology": 2
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "tomas-okafor",
+      "persona": "tomas",
+      "question": "What does Dr. Okafor expect from me?",
+      "category": "named",
+      "relevant": {
+        "advisor": 2
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "tomas-elena",
+      "persona": "tomas",
+      "question": "When is Elena usually at work?",
+      "category": "named",
+      "relevant": {
+        "elena": 2
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "tomas-concentrate",
+      "persona": "tomas",
+      "question": "Where do I concentrate best?",
+      "category": "paraphrase",
+      "relevant": {
+        "library": 2
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "tomas-free-help",
+      "persona": "tomas",
+      "question": "How could I get help with topology without spending money?",
+      "category": "multi",
+      "relevant": {
+        "topology": 2,
+        "budget": 2,
+        "studygroup": 2
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "tomas-quartet",
+      "persona": "tomas",
+      "question": "Which evening do I have quartet rehearsal?",
+      "category": "direct",
+      "relevant": {
+        "cello": 2
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "tomas-study-hours",
+      "persona": "tomas",
+      "question": "How many hours did I study in the last 7 days?",
+      "category": "temporal",
+      "relevant": {},
+      "expected_needs": [
+        "totals"
+      ],
+      "expected_figures": [
+        9
+      ],
+      "notes": "3 + 2 + 4 hours; the session 8 days ago is outside."
+    },
+    {
+      "id": "tomas-cello-hours",
+      "persona": "tomas",
+      "question": "How much cello practice did I do in the last 7 days?",
+      "category": "temporal",
+      "relevant": {},
+      "expected_needs": [
+        "totals"
+      ],
+      "expected_figures": [
+        2
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tomas-brother",
+      "persona": "tomas",
+      "question": "What is my brother's name?",
+      "category": "unanswerable",
+      "relevant": {},
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "aisha-avoid",
+      "persona": "aisha",
+      "question": "Which ingredients must I avoid in my recipes?",
+      "category": "paraphrase",
+      "relevant": {
+        "allergy": 2
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "aisha-bubbles",
+      "persona": "aisha",
+      "question": "How old is Bubbles?",
+      "category": "named",
+      "relevant": {
+        "starter": 2
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "aisha-more-orders",
+      "persona": "aisha",
+      "question": "How can I get the bakery to more orders each week?",
+      "category": "multi",
+      "relevant": {
+        "orders": 2,
+        "instagram": 1,
+        "market": 1,
+        "bakery": 1
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "aisha-books",
+      "persona": "aisha",
+      "question": "When do I get time for books?",
+      "category": "paraphrase",
+      "relevant": {
+        "reading": 2
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "aisha-noor",
+      "persona": "aisha",
+      "question": "How old is Noor now?",
+      "category": "named",
+      "relevant": {
+        "baby": 2
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "aisha-worn-out",
+      "persona": "aisha",
+      "question": "Which day of the week am I most worn out?",
+      "category": "paraphrase",
+      "relevant": {
+        "tired": 2
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "aisha-market",
+      "persona": "aisha",
+      "question": "Where do I sell my bread on Saturdays?",
+      "category": "direct",
+      "relevant": {
+        "market": 2
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "aisha-nursery",
+      "persona": "aisha",
+      "question": "Who takes the baby to nursery in the mornings?",
+      "category": "paraphrase",
+      "relevant": {
+        "husband": 2,
+        "baby": 1
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "aisha-loaves",
+      "persona": "aisha",
+      "question": "How many loaves did I bake in the last 7 days?",
+      "category": "temporal",
+      "relevant": {},
+      "expected_needs": [
+        "totals"
+      ],
+      "expected_figures": [
+        54
+      ],
+      "notes": "24 + 30 loaves; 20 loaves 10 days ago is outside."
+    },
+    {
+      "id": "aisha-pages",
+      "persona": "aisha",
+      "question": "How many pages did I read in the last 7 days?",
+      "category": "temporal",
+      "relevant": {},
+      "expected_needs": [
+        "totals"
+      ],
+      "expected_figures": [
+        65
+      ],
+      "notes": ""
+    },
+    {
+      "id": "aisha-university",
+      "persona": "aisha",
+      "question": "What did I study at university?",
+      "category": "unanswerable",
+      "relevant": {},
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "jun-stiff-hands",
+      "persona": "jun",
+      "question": "Why is it harder to play piano early in the day?",
+      "category": "paraphrase",
+      "relevant": {
+        "hands": 2
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "jun-snacks",
+      "persona": "jun",
+      "question": "What snacks are safe for me?",
+      "category": "paraphrase",
+      "relevant": {
+        "diet": 2
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "jun-balcony",
+      "persona": "jun",
+      "question": "What am I growing on my balcony?",
+      "category": "direct",
+      "relevant": {
+        "balcony": 2
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "jun-haru",
+      "persona": "jun",
+      "question": "How often do Haru and Mei visit?",
+      "category": "named",
+      "relevant": {
+        "grandkids": 2
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "jun-nocturne",
+      "persona": "jun",
+      "question": "Which nocturne am I working on?",
+      "category": "named",
+      "relevant": {
+        "nocturne": 2,
+        "piano": 1
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "jun-practice",
+      "persona": "jun",
+      "question": "How should I practise the piano to make faster progress?",
+      "category": "multi",
+      "relevant": {
+        "metronome": 2,
+        "hands": 1,
+        "nocturne": 1
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "jun-after-walks",
+      "persona": "jun",
+      "question": "Is there anything I should do after my long walks?",
+      "category": "paraphrase",
+      "relevant": {
+        "doctor": 2,
+        "diet": 1
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "jun-subject",
+      "persona": "jun",
+      "question": "What subject did I teach?",
+      "category": "direct",
+      "relevant": {
+        "teacher": 2
+      },
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    },
+    {
+      "id": "jun-steps",
+      "persona": "jun",
+      "question": "How many steps did I walk in the last 7 days?",
+      "category": "temporal",
+      "relevant": {},
+      "expected_needs": [
+        "totals"
+      ],
+      "expected_figures": [
+        23700
+      ],
+      "notes": "9000 + 6500 + 8200; the walk 11 days ago is outside."
+    },
+    {
+      "id": "jun-piano-minutes",
+      "persona": "jun",
+      "question": "How many minutes of piano did I practise in the last 7 days?",
+      "category": "temporal",
+      "relevant": {},
+      "expected_needs": [
+        "totals"
+      ],
+      "expected_figures": [
+        135
+      ],
+      "notes": ""
+    },
+    {
+      "id": "jun-football",
+      "persona": "jun",
+      "question": "Which football team do I support?",
+      "category": "unanswerable",
+      "relevant": {},
+      "expected_needs": [
+        "semantic"
+      ],
+      "expected_figures": [],
+      "notes": ""
+    }
+  ]
+}

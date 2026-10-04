@@ -1,0 +1,48 @@
+{
+  "config": {
+    "embedding_model": "test-embedding-model",
+    "k": 6,
+    "keyword_candidates": 20,
+    "min_similarity": 0.25,
+    "rrf_k": 60,
+    "semantic_candidates": 20
+  },
+  "dataset": "personas-v1",
+  "dataset_reviewed": false,
+  "dataset_version": "1",
+  "kind": "retrieval",
+  "summary": {
+    "hybrid": {
+      "cases": 33,
+      "mrr": 0.7525,
+      "ndcg_at_k": 0.7062,
+      "noise_on_unanswerable": 0.0,
+      "precision_at_k": 0.1616,
+      "recall_at_k": 0.6717
+    },
+    "hybrid_reranked": {
+      "cases": 33,
+      "mrr": 0.7576,
+      "ndcg_at_k": 0.7163,
+      "noise_on_unanswerable": 0.0,
+      "precision_at_k": 0.1616,
+      "recall_at_k": 0.6717
+    },
+    "keyword": {
+      "cases": 33,
+      "mrr": 0.7071,
+      "ndcg_at_k": 0.6647,
+      "noise_on_unanswerable": 0.0,
+      "precision_at_k": 0.1566,
+      "recall_at_k": 0.6414
+    },
+    "vector": {
+      "cases": 33,
+      "mrr": 0.4848,
+      "ndcg_at_k": 0.44,
+      "noise_on_unanswerable": 0.0,
+      "precision_at_k": 0.0808,
+      "recall_at_k": 0.3813
+    }
+  }
+}

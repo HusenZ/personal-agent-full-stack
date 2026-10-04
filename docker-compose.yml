@@ -1,0 +1,34 @@
+services:
+  postgres:
+    # pgvector is required by the semantic retrieval phases; using the extension
+    # image from the start keeps local and deployed schemas migratable alike.
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: pia
+      POSTGRES_PASSWORD: pia
+      POSTGRES_DB: pia
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pia -d pia"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    # Rate limiting only; nothing here is a source of truth, so no persistence
+    # is configured and a lost container costs at most a reset of the counters.
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres_data:

@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.Python
+
+# Packaging
+build/
+dist/
+
+# Environments
+.venv/
+venv/
+# Every env file holds secrets except the committed template.
+.env
+.env.*
+!.env.example
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+.dmypy.json
+
+# Logs
+*.log
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Per-machine Claude Code settings; the shared .claude/settings.json is committed.
+.claude/settings.local.json
+
+# Evaluation runs write timestamped reports here; only baselines are committed.
+evaluation/results/*.json
+!evaluation/results/baseline-*.json
+
+# Local Redis snapshots
+dump.rdb
