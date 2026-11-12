@@ -44,3 +44,6 @@ evaluation/results/*.json
 
 # Local Redis snapshots
 dump.rdb
+
+# Launch video output (frames, node_modules, renders)
+brag-output*/
