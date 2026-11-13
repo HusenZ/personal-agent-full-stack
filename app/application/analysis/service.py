@@ -11,31 +11,45 @@ from app.application.analysis.evidence_source import (
     serialise_evidence,
 )
 from app.application.analysis.exceptions import AnalysisNotFoundError, InsufficientContextError
+from app.application.analysis.steps import describe_analysis_step
+from app.application.runs.recording import build_run_record, store_failed_run
+from app.core.context import get_request_id
 from app.domain.analysis.claims import AnalysisClaim
 from app.domain.analysis.evidence import EvidenceBundle, RawEvidence, build_evidence_bundle
 from app.graph.analysis.graph import AnalysisGraph
-from app.infrastructure.database.models import Analysis
+from app.infrastructure.database.models import AgentRun, Analysis, RunKind
 from app.infrastructure.database.repositories.analysis import AnalysisRepository
 from app.infrastructure.database.repositories.onboarding import OnboardingSessionRepository
 from app.infrastructure.database.repositories.profile import ProfileRepository
+from app.infrastructure.database.repositories.run import RunRepository
 from app.infrastructure.llm.prompts.analysis import build_analysis_prompt
+from app.infrastructure.observability.tracing import RunTrace, bind_trace
 
 logger = logging.getLogger(__name__)
 
 
 class AnalysisService:
+    """Generates and reads evidence-grounded analyses.
+
+    Every graph run is recorded as a run of kind ``analysis``, readable through
+    ``/api/v1/runs/{id}/trace`` like a conversation turn. A request refused for
+    lack of evidence never starts the graph and so records no run.
+    """
+
     def __init__(
         self,
         session: AsyncSession,
         analyses: AnalysisRepository,
         profiles: ProfileRepository,
         onboarding_sessions: OnboardingSessionRepository,
+        runs: RunRepository,
         graph: AnalysisGraph,
     ) -> None:
         self._session = session
         self._analyses = analyses
         self._profiles = profiles
         self._onboarding_sessions = onboarding_sessions
+        self._runs = runs
         self._graph = graph
 
     async def generate(self, user_id: uuid.UUID) -> AnalysisView:
@@ -45,6 +59,17 @@ class AnalysisService:
         if build_evidence_bundle(raw_evidence).is_empty():
             raise InsufficientContextError()
 
+        trace = RunTrace(run_id=uuid.uuid4(), kind=RunKind.ANALYSIS.value)
+        with bind_trace(trace):
+            try:
+                return await self._run(user_id, raw_evidence, trace)
+            except Exception as error:
+                await self._record_failed_run(user_id, trace, error)
+                raise
+
+    async def _run(
+        self, user_id: uuid.UUID, raw_evidence: RawEvidence, trace: RunTrace
+    ) -> AnalysisView:
         result: dict[str, Any] = await self._graph.ainvoke(
             {"user_id": str(user_id), "raw_evidence": raw_evidence, "attempt": 0, "errors": []}
         )
@@ -65,6 +90,9 @@ class AnalysisService:
             degraded=bool(result.get("degraded")),
         )
         self._analyses.add(analysis)
+        self._runs.add(self._run_record(user_id, trace, result, error=None))
+
+        # The analysis and the record of the run that made it, together or neither.
         await self._session.commit()
 
         logger.info(
@@ -87,6 +115,40 @@ class AnalysisService:
             degraded=analysis.degraded,
             claims=tuple(claims),
             evidence=evidence,
+            run_id=trace.run_id,
+        )
+
+    async def _record_failed_run(
+        self, user_id: uuid.UUID, trace: RunTrace, error: BaseException
+    ) -> None:
+        """Store the record of a run that failed, without an analysis.
+
+        Best effort, as for conversation turns: when the database is what
+        failed this fails too, and the original error is the one that matters.
+        """
+        record = self._run_record(user_id, trace, {}, error=error)
+        await store_failed_run(self._session, self._runs, record)
+
+    @staticmethod
+    def _run_record(
+        user_id: uuid.UUID,
+        trace: RunTrace,
+        result: dict[str, Any],
+        *,
+        error: BaseException | None,
+    ) -> AgentRun:
+        return build_run_record(
+            trace,
+            kind=RunKind.ANALYSIS,
+            user_id=user_id,
+            conversation_id=None,
+            request_id=get_request_id(),
+            result={
+                "generation_attempts": result.get("attempt") or 0,
+                "degraded": bool(result.get("degraded")),
+            },
+            error=error,
+            describe=describe_analysis_step,
         )
 
     async def get_latest(self, user_id: uuid.UUID) -> AnalysisView:

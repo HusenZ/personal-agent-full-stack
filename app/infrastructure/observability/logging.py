@@ -51,6 +51,8 @@ class JsonFormatter(logging.Formatter):
         trace = current_trace()
         if trace is not None:
             payload["run_id"] = str(trace.run_id)
+            if trace.kind is not None:
+                payload["run_kind"] = trace.kind
 
         payload.update(_extra_fields(record))
 

@@ -7,8 +7,9 @@ from app.domain.analysis.policy import AnalysisPolicy
 from app.graph.analysis.nodes.build_evidence import build_evidence
 from app.graph.analysis.nodes.generate_analysis import build_generate_analysis_node
 from app.graph.analysis.nodes.verify_grounding import build_verify_grounding_node
-from app.graph.analysis.state import AnalysisState
+from app.graph.analysis.state import AnalysisNode, AnalysisState
 from app.infrastructure.llm.provider import LLMProvider
+from app.infrastructure.observability.tracing import run_step
 
 type AnalysisGraph = CompiledStateGraph[AnalysisState, None, AnalysisState, AnalysisState]
 
@@ -37,12 +38,36 @@ def build_route_after_verification(policy: AnalysisPolicy) -> Callable[[Analysis
     return route_after_verification
 
 
+def _traced(name: str, node: AnalysisNode) -> AnalysisNode:
+    """Record the node into the current run's trace, if one is bound.
+
+    Applied here, once, rather than inside each node, so no node can forget it
+    and none of them has to know tracing exists.
+    """
+
+    async def traced(state: AnalysisState) -> AnalysisState:
+        return await run_step(name, lambda: node(state))
+
+    return traced
+
+
+def max_steps(policy: AnalysisPolicy) -> int:
+    """The most steps a run can take when the retry loop spends its whole budget.
+
+    build_evidence, then a generation and a verification for every attempt.
+    """
+    return 1 + 2 * policy.max_generation_attempts
+
+
 def build_analysis_graph(provider: LLMProvider, policy: AnalysisPolicy) -> AnalysisGraph:
     graph = StateGraph(AnalysisState)
 
-    graph.add_node(BUILD_EVIDENCE, build_evidence)
-    graph.add_node(GENERATE_ANALYSIS, build_generate_analysis_node(provider))
-    graph.add_node(VERIFY_GROUNDING, build_verify_grounding_node(policy))
+    def add_node(name: str, node: AnalysisNode) -> None:
+        graph.add_node(name, _traced(name, node))
+
+    add_node(BUILD_EVIDENCE, build_evidence)
+    add_node(GENERATE_ANALYSIS, build_generate_analysis_node(provider))
+    add_node(VERIFY_GROUNDING, build_verify_grounding_node(policy))
 
     graph.add_edge(START, BUILD_EVIDENCE)
     graph.add_edge(BUILD_EVIDENCE, GENERATE_ANALYSIS)
@@ -53,4 +78,6 @@ def build_analysis_graph(provider: LLMProvider, policy: AnalysisPolicy) -> Analy
         {GENERATE_ANALYSIS: GENERATE_ANALYSIS, END: END},
     )
 
-    return graph.compile()
+    # Set to the exact worst case so a broken loop fails fast, and so a trace
+    # can never hold more steps than the policy allows (verified in tests).
+    return graph.compile().with_config(recursion_limit=max_steps(policy) + 1)

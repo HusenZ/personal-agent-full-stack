@@ -28,6 +28,9 @@ class RunStatus(StrEnum):
 
 class RunKind(StrEnum):
     CONVERSATION_TURN = "conversation_turn"
+    ONBOARDING_TURN = "onboarding_turn"
+    ANALYSIS = "analysis"
+    WEEK_PLAN = "week_plan"
 
 
 class AgentRun(Base):
@@ -42,6 +45,8 @@ class AgentRun(Base):
     __table_args__ = (
         # Runs are read one at a time by id, and listed per user newest first.
         Index("ix_agent_runs_user_id_started_at", "user_id", "started_at"),
+        # Operational reads span users over a time window: run health, retention.
+        Index("ix_agent_runs_started_at", "started_at"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
@@ -79,6 +84,11 @@ class AgentRun(Base):
 
     # Exception type and step only; messages may contain user data.
     error_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # The types it was raised from, outermost first: the root cause of a wrapped error.
+    error_chain: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    # "app/<path>.py:<line> in <function>": where in our code it surfaced.
+    error_location: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    # Null for a failure outside every node, such as storing the result.
     failed_node: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     steps: Mapped[list[dict[str, Any]]] = mapped_column(

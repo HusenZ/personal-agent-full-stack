@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.infrastructure.database.models import RunKind, RunStatus
 
@@ -27,6 +27,11 @@ class RunResponse(BaseModel):
     degraded: bool
 
     error_type: str | None
+    # Types the error was raised from, outermost first; its root cause is last.
+    error_chain: list[str] | None = None
+    # Where in the application code it surfaced: "app/<path>.py:<line> in <function>".
+    error_location: str | None = None
+    # Null when the run failed outside every node, such as while storing its result.
     failed_node: str | None
 
 
@@ -47,8 +52,12 @@ class StepResponse(BaseModel):
     # Milliseconds from the start of the run, so steps can be laid out in time.
     offset_ms: float
     duration_ms: float
+    # "ok", "failed", or "cancelled" when stopped from outside.
     status: str
     error_type: str | None
+    # Defaults keep traces stored before these fields existed readable.
+    error_chain: list[str] = Field(default_factory=list)
+    error_location: str | None = None
     # Counts and outcomes allow-listed per step; never what was said or written.
     detail: dict[str, Any]
     model_calls: list[ModelCallResponse]

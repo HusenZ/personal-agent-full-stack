@@ -31,3 +31,5 @@ class OnboardingTurn:
     coverage: dict[str, float] = field(default_factory=dict)
     question: AskedQuestion | None = None
     is_complete: bool = False
+    # The run that produced this turn; None when no graph ran (resume, status).
+    run_id: uuid.UUID | None = None

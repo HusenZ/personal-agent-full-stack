@@ -44,6 +44,13 @@ class WeekPlanResponse(BaseModel):
     summary: str
     blocks: list[PlanBlockResponse]
     evidence: list[PlanEvidenceResponse]
+    run_id: uuid.UUID | None = Field(
+        default=None,
+        description=(
+            "The run that generated this plan, readable at /api/v1/runs/{run_id}/trace. "
+            "Set only on the response to POST /plans/week."
+        ),
+    )
 
 
 class UpdatePlanBlockRequest(BaseModel):

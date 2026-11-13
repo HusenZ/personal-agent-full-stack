@@ -115,6 +115,7 @@ def get_onboarding_service(
         session=session,
         sessions=OnboardingSessionRepository(session),
         profiles=ProfileService(session=session, profiles=ProfileRepository(session)),
+        runs=RunRepository(session),
         graph=graph,
     )
 
@@ -131,6 +132,7 @@ def get_analysis_service(
         analyses=AnalysisRepository(session),
         profiles=ProfileRepository(session),
         onboarding_sessions=OnboardingSessionRepository(session),
+        runs=RunRepository(session),
         graph=graph,
     )
 
@@ -147,6 +149,7 @@ def get_planning_service(
         plans=WeekPlanRepository(session),
         profiles=ProfileRepository(session),
         onboarding_sessions=OnboardingSessionRepository(session),
+        runs=RunRepository(session),
         llm=llm,
     )
 

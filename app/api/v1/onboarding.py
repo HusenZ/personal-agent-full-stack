@@ -34,6 +34,7 @@ def _to_response(turn: OnboardingTurn) -> DataResponse[OnboardingTurnResponse]:
                 if turn.question is not None
                 else None
             ),
+            run_id=turn.run_id,
         ),
         meta=ResponseMeta(request_id=get_request_id()),
     )

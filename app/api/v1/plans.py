@@ -64,6 +64,7 @@ def _to_response(view: WeekPlanView) -> DataResponse[WeekPlanResponse]:
                 PlanEvidenceResponse(id=item.id, kind=item.kind, content=item.content)
                 for item in view.evidence.items
             ],
+            run_id=view.run_id,
         ),
         meta=ResponseMeta(request_id=get_request_id()),
     )

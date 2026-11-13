@@ -19,7 +19,7 @@ def block(day: int = 0, start: str | None = "18:00", minutes: int = 45, **extra:
         start=start,
         duration_minutes=minutes,
         title=str(extra.get("title", "Easy run")),
-        category=BlockCategory(extra.get("category", "health")),
+        category=BlockCategory(str(extra.get("category", "health"))),
         reason="Builds towards the half marathon.",
         evidence_ids=list(extra.get("evidence_ids", ["goal:1"])),  # type: ignore[call-overload]
     )

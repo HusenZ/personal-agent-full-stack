@@ -38,6 +38,7 @@ def _to_response(view: AnalysisView) -> DataResponse[AnalysisResponse]:
                 EvidenceResponse(id=item.id, kind=item.kind, content=item.content)
                 for item in view.evidence.items
             ],
+            run_id=view.run_id,
         ),
         meta=ResponseMeta(request_id=get_request_id()),
     )

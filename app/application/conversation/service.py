@@ -23,7 +23,7 @@ from app.application.conversation.events import (
 )
 from app.application.conversation.exceptions import ConversationNotFoundError
 from app.application.memory.background import MemoryExtractionPayload, memory_extraction_job
-from app.application.runs.recording import build_run_record
+from app.application.runs.recording import build_run_record, store_failed_run
 from app.core.context import get_request_id
 from app.domain.conversation.context import (
     ContextBudget,
@@ -105,7 +105,7 @@ class ConversationService:
 
     async def send_message(self, command: ChatCommand) -> ChatResult:
         turn = await self.prepare_turn(command)
-        trace = RunTrace(run_id=uuid.uuid4())
+        trace = RunTrace(run_id=uuid.uuid4(), kind=RunKind.CONVERSATION_TURN.value)
 
         with bind_trace(trace):
             try:
@@ -145,7 +145,7 @@ class ConversationService:
         part way, nothing is committed: the request's session rolls back, and
         a question whose answer was never delivered is not left in the history.
         """
-        trace = RunTrace(run_id=uuid.uuid4())
+        trace = RunTrace(run_id=uuid.uuid4(), kind=RunKind.CONVERSATION_TURN.value)
         yield TurnProgress(
             TurnEventType.QUERY_STARTED,
             {"conversation_id": str(turn.conversation.id), "run_id": str(trace.run_id)},
@@ -272,25 +272,8 @@ class ConversationService:
         """
         # Read before rollback; expired attributes raise on an async session.
         conversation_id = turn.conversation.id if turn.command.conversation_id is not None else None
-
-        try:
-            await self._session.rollback()
-            self._runs.add(
-                self._run_record(turn, trace, result, error=error, conversation_id=conversation_id)
-            )
-            await self._session.commit()
-        except Exception:
-            logger.exception("run_record_failed", extra={"run_id": str(trace.run_id)})
-            await self._session.rollback()
-
-        logger.warning(
-            "chat_turn_failed",
-            extra={
-                "user_id": str(turn.command.user_id),
-                "error_type": type(error).__name__,
-                "failed_node": (step.node if (step := trace.failed_step()) else None),
-            },
-        )
+        record = self._run_record(turn, trace, result, error=error, conversation_id=conversation_id)
+        await store_failed_run(self._session, self._runs, record)
 
     def _run_record(
         self,

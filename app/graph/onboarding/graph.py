@@ -6,8 +6,9 @@ from app.graph.onboarding.nodes.assess_context import build_assess_context_node
 from app.graph.onboarding.nodes.build_profile import build_profile
 from app.graph.onboarding.nodes.extract_information import build_extract_information_node
 from app.graph.onboarding.nodes.generate_question import build_generate_question_node
-from app.graph.onboarding.state import OnboardingTurnState
+from app.graph.onboarding.state import OnboardingNode, OnboardingTurnState
 from app.infrastructure.llm.provider import LLMProvider
+from app.infrastructure.observability.tracing import run_step
 
 type OnboardingGraph = CompiledStateGraph[
     OnboardingTurnState, None, OnboardingTurnState, OnboardingTurnState
@@ -28,13 +29,29 @@ def route_after_assessment(state: OnboardingTurnState) -> str:
     return BUILD_PROFILE if state.get("is_complete") else GENERATE_QUESTION
 
 
+def _traced(name: str, node: OnboardingNode) -> OnboardingNode:
+    """Record the node into the current run's trace, if one is bound.
+
+    Applied here, once, rather than inside each node, so no node can forget it
+    and none of them has to know tracing exists.
+    """
+
+    async def traced(state: OnboardingTurnState) -> OnboardingTurnState:
+        return await run_step(name, lambda: node(state))
+
+    return traced
+
+
 def build_onboarding_graph(provider: LLMProvider, policy: OnboardingPolicy) -> OnboardingGraph:
     graph = StateGraph(OnboardingTurnState)
 
-    graph.add_node(EXTRACT_INFORMATION, build_extract_information_node(provider))
-    graph.add_node(ASSESS_CONTEXT, build_assess_context_node(policy))
-    graph.add_node(GENERATE_QUESTION, build_generate_question_node(provider))
-    graph.add_node(BUILD_PROFILE, build_profile)
+    def add_node(name: str, node: OnboardingNode) -> None:
+        graph.add_node(name, _traced(name, node))
+
+    add_node(EXTRACT_INFORMATION, build_extract_information_node(provider))
+    add_node(ASSESS_CONTEXT, build_assess_context_node(policy))
+    add_node(GENERATE_QUESTION, build_generate_question_node(provider))
+    add_node(BUILD_PROFILE, build_profile)
 
     graph.add_edge(START, EXTRACT_INFORMATION)
     graph.add_edge(EXTRACT_INFORMATION, ASSESS_CONTEXT)

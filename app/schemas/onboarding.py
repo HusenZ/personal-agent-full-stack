@@ -26,3 +26,10 @@ class OnboardingTurnResponse(BaseModel):
     overall_confidence: float
     coverage: dict[str, float] = Field(default_factory=dict)
     question: OnboardingQuestionResponse | None = None
+    run_id: uuid.UUID | None = Field(
+        default=None,
+        description=(
+            "The run that produced this turn, readable at /api/v1/runs/{run_id}/trace. "
+            "Null when no interview step ran: a resumed start or a status read."
+        ),
+    )

@@ -1,5 +1,6 @@
 import logging
 import uuid
+from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any
 
@@ -10,12 +11,23 @@ from app.application.onboarding.exceptions import (
     OnboardingAlreadyCompletedError,
     OnboardingNotStartedError,
 )
+from app.application.onboarding.steps import describe_onboarding_step
 from app.application.profile.dto import GoalInput, UpdateProfileCommand
 from app.application.profile.service import ProfileService
+from app.application.runs.recording import build_run_record, store_failed_run
+from app.core.context import get_request_id
 from app.graph.onboarding.graph import OnboardingGraph
 from app.graph.onboarding.state import AskedQuestion, ProfileDraft
-from app.infrastructure.database.models import GoalPriority, OnboardingSession, OnboardingStatus
+from app.infrastructure.database.models import (
+    AgentRun,
+    GoalPriority,
+    OnboardingSession,
+    OnboardingStatus,
+    RunKind,
+)
 from app.infrastructure.database.repositories.onboarding import OnboardingSessionRepository
+from app.infrastructure.database.repositories.run import RunRepository
+from app.infrastructure.observability.tracing import RunTrace, SpanStatus, bind_trace
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +37,10 @@ class OnboardingService:
 
     The graph advances the interview by a single exchange; this service owns the
     durable state around it, so a turn survives the process that produced it.
+
+    Every graph run is recorded as a run of kind ``onboarding_turn``, readable
+    through ``/api/v1/runs/{id}/trace`` like a conversation turn. A resumed
+    interview or a status read runs no graph and so records no run.
     """
 
     def __init__(
@@ -32,11 +48,13 @@ class OnboardingService:
         session: AsyncSession,
         sessions: OnboardingSessionRepository,
         profiles: ProfileService,
+        runs: RunRepository,
         graph: OnboardingGraph,
     ) -> None:
         self._session = session
         self._sessions = sessions
         self._profiles = profiles
+        self._runs = runs
         self._graph = graph
 
     async def start(self, user_id: uuid.UUID) -> OnboardingTurn:
@@ -92,6 +110,26 @@ class OnboardingService:
         user_id: uuid.UUID,
         answer: str | None,
     ) -> OnboardingTurn:
+        trace = RunTrace(run_id=uuid.uuid4(), kind=RunKind.ONBOARDING_TURN.value)
+
+        with bind_trace(trace):
+            try:
+                return await self._run_turn(
+                    onboarding_session, state, trace, user_id=user_id, answer=answer
+                )
+            except Exception as error:
+                await self._record_failed_run(user_id, trace, error)
+                raise
+
+    async def _run_turn(
+        self,
+        onboarding_session: OnboardingSession,
+        state: OnboardingSessionState,
+        trace: RunTrace,
+        *,
+        user_id: uuid.UUID,
+        answer: str | None,
+    ) -> OnboardingTurn:
         result: dict[str, Any] = await self._graph.ainvoke(
             {
                 "user_id": str(user_id),
@@ -124,7 +162,9 @@ class OnboardingService:
             onboarding_session.status = OnboardingStatus.COMPLETED
             onboarding_session.completed_at = datetime.now(tz=UTC)
 
-        # Interview state and resulting profile are committed together.
+        self._runs.add(self._run_record(user_id, trace, error=None))
+
+        # Interview state, resulting profile and the run's record are committed together.
         await self._session.commit()
 
         logger.info(
@@ -139,7 +179,37 @@ class OnboardingService:
             },
         )
 
-        return self._to_turn(onboarding_session, updated)
+        return replace(self._to_turn(onboarding_session, updated), run_id=trace.run_id)
+
+    async def _record_failed_run(
+        self, user_id: uuid.UUID, trace: RunTrace, error: BaseException
+    ) -> None:
+        """Store the record of a turn that failed, without the turn itself.
+
+        Best effort, as for conversation turns: when the database is what
+        failed this fails too, and the original error is the one that matters.
+        """
+        await store_failed_run(
+            self._session, self._runs, self._run_record(user_id, trace, error=error)
+        )
+
+    @staticmethod
+    def _run_record(
+        user_id: uuid.UUID, trace: RunTrace, *, error: BaseException | None
+    ) -> AgentRun:
+        # Every model failure in the interview is absorbed by a fallback: a lost
+        # answer or a fixed question. Either way the turn ran degraded.
+        degraded = any(call.status is SpanStatus.FAILED for call in trace.model_calls())
+        return build_run_record(
+            trace,
+            kind=RunKind.ONBOARDING_TURN,
+            user_id=user_id,
+            conversation_id=None,
+            request_id=get_request_id(),
+            result={"degraded": degraded},
+            error=error,
+            describe=describe_onboarding_step,
+        )
 
     async def _persist_profile(self, user_id: uuid.UUID, draft: ProfileDraft | None) -> None:
         if draft is None:

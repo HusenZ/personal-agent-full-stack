@@ -37,3 +37,10 @@ class AnalysisResponse(BaseModel):
 
     sections: dict[AnalysisSection, list[ClaimResponse]]
     evidence: list[EvidenceResponse]
+    run_id: uuid.UUID | None = Field(
+        default=None,
+        description=(
+            "The run that generated this analysis, readable at /api/v1/runs/{run_id}/trace. "
+            "Set only on the response to POST /analysis."
+        ),
+    )

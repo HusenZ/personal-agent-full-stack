@@ -14,3 +14,5 @@ class AnalysisView:
     degraded: bool
     claims: tuple[AnalysisClaim, ...]
     evidence: EvidenceBundle
+    # The run that generated it; None when an analysis is read back later.
+    run_id: uuid.UUID | None = None

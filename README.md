@@ -8,7 +8,7 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL%2017-pgvector-4169E1?logo=postgresql&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-rate%20limiting-DC382D?logo=redis&logoColor=white)
 ![Flutter](https://img.shields.io/badge/Flutter-Android%20%7C%20iOS-02569B?logo=flutter&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-850-brightgreen)
+![Tests](https://img.shields.io/badge/tests-974-brightgreen)
 
 Most chatbots forget you when the conversation ends, or "remember" by pasting
 old messages back into the prompt. This system works more like a careful human
@@ -33,9 +33,9 @@ public REST and SSE API.
 
 | | |
 |---|---|
-| **Scope** | 17 planned phases delivered: auth to agents, retrieval, evaluation and hardening |
-| **Tests** | 850 automated tests across unit, LangGraph workflow and integration suites |
-| **Code** | ~14k lines of application code, ~11.5k lines of tests, 13 database migrations |
+| **Scope** | 18 phases delivered: auth to agents, retrieval, evaluation, hardening and tracing across every workflow |
+| **Tests** | 974 automated tests across unit, LangGraph workflow and integration suites |
+| **Code** | ~14.5k lines of application code, ~14k lines of tests, 14 database migrations |
 | **Clients** | Flutter app for Android and iOS, with live streaming and calendar export |
 | **Quality gates** | `pytest`, `ruff`, strict `mypy`, Alembic drift check, retrieval-quality regression gate |
 
@@ -173,7 +173,7 @@ instructions are in [Setup](#setup) and [Run](#run).
 | [mobile/README.md](mobile/README.md) | The Flutter client |
 | [CLAUDE.md](CLAUDE.md) | Working rules for AI-assisted development |
 
-> **Testing approach.** All 850 tests run against a deterministic fake model,
+> **Testing approach.** All 974 tests run against a deterministic fake model,
 > so the suite is fast, free and repeatable, and fails only for reasons inside
 > this repository. The OpenAI adapter, including its failure paths, is tested
 > the same way. Measuring quality against the live model is the next step; see
@@ -215,9 +215,11 @@ instructions are in [Setup](#setup) and [Run](#run).
   reported as `grounded` (or not) in the response
 - streaming: server-sent progress events while a turn runs, with the reply
   released only once it has passed verification and been stored
-- execution tracing: every conversation turn is stored as a run, with per-step
-  timings, model calls, token usage, retries and the point of failure, readable
-  through `/api/v1/runs`
+- execution tracing: every conversation turn, onboarding turn, analysis and
+  week plan is stored as a run, with per-step timings, model calls, token usage,
+  retries and the point of failure (node, exception type, root cause and code
+  location), readable through `/api/v1/runs`; a run-health report aggregates
+  node failure rates and timings across runs
 - background processing: memory extraction is queued in PostgreSQL in the same
   transaction as the exchange, and run by a separate worker with leases,
   bounded retries and exactly-once effects
@@ -316,12 +318,12 @@ device on it.
 | `POST /api/v1/auth/refresh`    | Rotate a refresh token.                          |
 | `POST /api/v1/auth/logout`     | Revoke a refresh token and its family.           |
 | `DELETE /api/v1/auth/account`  | Delete the account and all its data. Needs the password; `403 INCORRECT_PASSWORD` otherwise. |
-| `POST /api/v1/onboarding/start`| Begin, or resume, the interview.                 |
-| `POST /api/v1/onboarding/message` | Answer the current question.                  |
+| `POST /api/v1/onboarding/start`| Begin, or resume, the interview. A new interview's `run_id` names its trace. |
+| `POST /api/v1/onboarding/message` | Answer the current question. `run_id` names the turn's trace. |
 | `GET /api/v1/onboarding/status`| Progress and confidence breakdown.               |
-| `POST /api/v1/analysis`        | Generate an analysis from known evidence.        |
+| `POST /api/v1/analysis`        | Generate an analysis from known evidence. `run_id` names its trace. |
 | `GET /api/v1/analysis/latest`  | The most recent analysis, with its evidence.     |
-| `POST /api/v1/plans/week`     | Plan the next seven days from your goals and constraints. `409 INSUFFICIENT_CONTEXT` with nothing to plan from, `503 PLAN_UNAVAILABLE` if the model fails. |
+| `POST /api/v1/plans/week`     | Plan the next seven days from your goals and constraints. `409 INSUFFICIENT_CONTEXT` with nothing to plan from, `503 PLAN_UNAVAILABLE` if the model fails. The response's `run_id` names its trace. |
 | `GET /api/v1/plans/week/latest` | Your most recent week plan. Timed blocks include `starts_at`/`ends_at` as instants in the plan's time zone. |
 | `PATCH /api/v1/plans/{id}/blocks/{block_id}` | Mark a block done or not done.   |
 | `POST /api/v1/chat`            | Send a message, receive a reply.                 |
@@ -524,7 +526,9 @@ app/
 │   ├── conversation/                    chat turns, listing and pagination
 │   ├── memory/                          extraction, lifecycle and user control
 │   ├── onboarding/                      interview turns and persistence
-│   └── profile/                         profile read and update use cases
+│   ├── planning/                        week plans, traced stage by stage
+│   ├── profile/                         profile read and update use cases
+│   └── runs/                            run records, failed-run storage, run health
 ├── domain/
 │   ├── analysis/                        evidence, claim types, grounding rules
 │   ├── conversation/                    context assembly and bounding
@@ -566,13 +570,15 @@ app/
 │   │   └── provider.py                  the LLMProvider protocol
 │   └── observability/
 │       ├── logging.py                   structured log formatters
-│       └── tracing.py                   per-run step and model-call traces
+│       └── tracing.py                   per-run step and model-call traces, failure diagnostics
 └── schemas/
     └── common.py                        response envelopes
 
 migrations/                              Alembic environment and revisions
 scripts/
-└── benchmark_turn.py                    per-step latency of a turn, model excluded
+├── benchmark_turn.py                    per-step latency of a turn, model excluded
+├── grant_plan.py                        put an account on a plan by hand
+└── run_stats.py                         run health: node failure rates and timings
 tests/
 ├── fakes.py                             deterministic model double
 ├── unit/
@@ -1099,14 +1105,36 @@ every progress event until the turn finished.
 
 ### Execution tracing
 
-Every conversation turn is a **run** with an id, returned as `run_id` on both
-chat endpoints (and in the stream's first event). The run is stored, and its
-trace can be read back:
+Every execution of an agent workflow is a **run** with an id, returned as
+`run_id` by the endpoint that started it (for a chat stream, in its first
+event). The run is stored, and its trace can be read back:
 
 ```text
-GET /api/v1/runs/{run_id}         status, duration, model calls, tokens, attempts, outcome
+GET /api/v1/runs/{run_id}         status, duration, model calls, tokens, attempts, outcome, failure
 GET /api/v1/runs/{run_id}/trace   the same, plus every step in order
 ```
+
+Four kinds of run are traced, every node of every graph included:
+
+| Run kind | Started by | Steps (each one traced) | Committed with |
+| --- | --- | --- | --- |
+| `conversation_turn` | `POST /chat`, `POST /chat/stream` | `understand_query`, `retrieve_context`, `grade_evidence`, `retry_retrieval`, `build_context`, `generate_reply`, `verify_answer` | the exchange and its extraction job |
+| `onboarding_turn` | `POST /onboarding/start` (a new interview), `POST /onboarding/message` | `extract_information`, `assess_context`, `generate_question`, `build_profile` | the interview state, and the profile it completes |
+| `analysis` | `POST /analysis` | `build_evidence`, `generate_analysis`, `verify_grounding` | the analysis |
+| `week_plan` | `POST /plans/week` | `collect_evidence`, `propose_week`, `check_week`, `store_plan` | the week plan |
+
+Background memory extraction is the one workflow not traced yet. Reads
+(`GET /onboarding/status`, `/analysis/latest`, `/plans/week/latest`), a resumed
+interview and a request refused before its graph starts run no graph, so they
+record no run and return `run_id: null`.
+
+What a run records:
+
+| Level | Fields |
+| --- | --- |
+| Run | `kind`, `status` (`completed`/`failed`), `started_at`, `duration_ms`, `model_calls`, `input_tokens`, `output_tokens`, `retrieval_attempts`, `generation_attempts`, `grounded`, `degraded`, `request_id`, and on failure `failed_node`, `error_type`, `error_chain`, `error_location` |
+| Step | `node`, `offset_ms`, `duration_ms`, `status` (`ok`/`failed`/`cancelled`), `error_type`, `error_chain`, `error_location`, an allow-listed `detail`, and its `model_calls` |
+| Model call | `kind`, prompt `name` and `version`, `duration_ms`, `status`, `error_type`, `input_tokens`, `output_tokens` |
 
 A trace, from a turn run locally without model credentials:
 
@@ -1125,8 +1153,8 @@ embedding call `retrieve_context` starts as a separate task, which inherits the
 step's context. Context variables are what keep concurrent requests apart: the
 nodes and providers are shared, and a test runs two traced runs concurrently and
 asserts neither records into the other. Log lines inside a run carry its
-`run_id`, read from the same trace so a log line and a stored trace cannot
-disagree.
+`run_id` and `run_kind`, read from the same trace so a log line and a stored
+trace cannot disagree.
 
 **Token usage** comes from the OpenAI adapter, which reports each attempt's
 usage — every attempt is billed, including one whose output was unusable.
@@ -1138,12 +1166,13 @@ model, which belongs with evaluation.
 **What is stored is metadata.** Step detail comes from the same per-step
 allow-list that decides what the stream shows, so the two cannot drift apart.
 Model calls are recorded by prompt name and version, never prompt text; errors
-by exception type, never message. Tests assert that neither the question nor
-the reply appears anywhere in a trace.
+by exception type, cause chain and code location, never message. Tests assert
+that neither the question nor the reply appears anywhere in a trace.
 
 **Failed runs are stored too** — they are the ones a trace is most needed for.
 The exchange rolls back, then the run is written on its own with its status,
-the exception type and the step it failed in. A conversation created for that
+the exception type, its cause chain, the code location and the step it failed
+in (see [Failure diagnostics](#failure-diagnostics)). A conversation created for that
 turn is rolled back with it, so the run does not point at it. (The ids are read
 before the rollback: a rollback expires loaded objects, and reading one on an
 async session raises rather than reloading — a test pins this.) A turn the
@@ -1151,9 +1180,236 @@ client abandons is cancelled and leaves no run.
 
 Runs are scoped to their user like everything else (another user's run is
 `404 RUN_NOT_FOUND`, identical to one that does not exist), deleted with the
-user, and kept when their conversation is deleted. Only conversation turns are
-traced so far; onboarding, analysis and background memory extraction are not.
-Runs are kept indefinitely; a retention policy is future work.
+user, and kept when their conversation is deleted. Conversation turns,
+onboarding turns, analyses (see [Onboarding and analysis runs](#onboarding-and-analysis-runs))
+and week plans (see [Week-plan runs](#week-plan-runs)) are traced; background
+memory extraction is not yet. The worker prunes runs after `RUN_RETENTION_DAYS`
+(30 by default); see [Hardening](#hardening).
+
+#### Onboarding and analysis runs
+
+The interview and analysis graphs are traced exactly as the conversation graph
+is: each graph builder wraps every node in `run_step` once, through the same
+`_traced` helper, so all four onboarding nodes and all three analysis nodes are
+recorded and no node knows tracing exists. Their model calls land in the step
+that made them, through the tracing provider `create_app` already installs.
+
+| Endpoint | Run kind | Steps |
+| --- | --- | --- |
+| `POST /onboarding/start` (new interview), `POST /onboarding/message` | `onboarding_turn` | `extract_information → assess_context → generate_question` or `→ build_profile` |
+| `POST /analysis` | `analysis` | `build_evidence → generate_analysis → verify_grounding`, repeated from `generate_analysis` on a retry |
+
+Both responses carry the `run_id`. A resumed `start`, `GET /onboarding/status`
+and `GET /analysis/latest` run no graph, so they record no run and return
+`run_id: null`; so does an analysis refused with `409 INSUFFICIENT_CONTEXT`,
+which is decided before the graph starts.
+
+Step detail is allow-listed per node, as for conversation turns
+(`application/onboarding/steps.py`, `application/analysis/steps.py`):
+
+- `extract_information`: whether the answer was usable, whether extraction failed
+- `assess_context`: overall confidence, per-dimension coverage, whether the
+  interview is complete and the (fixed-vocabulary) completion reason
+- `generate_question`: the dimension asked about and the question count, never
+  the question
+- `build_profile`: how many goals, constraints and preferences the draft holds
+- `build_evidence`: how many evidence items there are
+- `generate_analysis`: the attempt, how many claims came back, whether the call failed
+- `verify_grounding`: claims kept, kept claims by type, rejections by reason,
+  overall confidence, whether the result is degraded
+
+Answers, questions, extracted content, claims and evidence text are never
+stored; tests assert none appears in a trace.
+
+The run is committed in the same transaction as what the graph produced: the
+interview state and any profile it completes, or the analysis. A graph that
+raises stores a failed run on its own, after the rollback, with the node it
+failed in (`failed_node`) and the exception type (`error_type`, never its
+message); the analysis allowance is still refunded. A failure after every node
+has succeeded, such as the profile or analysis write, is recorded with its
+`error_type` and `failed_node: null`, and the trace shows every step `ok`: the
+run says where it failed, and it did not fail in a node. Failed runs are read
+through the same `GET /api/v1/runs/{id}` and `/trace` endpoints as successful
+ones. Model failures the nodes absorb are visible too: the call is marked
+failed in its step. An onboarding turn with any failed model call is recorded `degraded`, because each such
+failure is covered by a fallback, either a lost answer or a fixed question. An
+analysis is `degraded` exactly when the stored analysis is, and its
+`generation_attempts` match the row's.
+
+#### Week-plan runs
+
+`POST /api/v1/plans/week` is recorded as a run of kind `week_plan`, and its
+`run_id` is returned with the plan (a plan read later through
+`/plans/week/latest` carries `null`). Planning is not a LangGraph graph, so its
+stages are traced as steps directly, through the same `run_step` and model-call
+tracing the conversation graph uses:
+
+```text
+collect_evidence  {evidence_items}                     no model call
+propose_week      {proposed_blocks}                    planning.week (prompt name and version)
+check_week        {kept_blocks, rejected, categories}  no model call
+store_plan        {stored_blocks}                      no model call
+```
+
+`rejected` counts the domain's rejection reasons (`day_out_of_range`,
+`overlap`, `unknown_evidence`, …) and `categories` counts kept blocks by
+`BlockCategory`. Both are fixed vocabularies from the domain; block titles,
+reasons, the summary and the evidence text are never stored, and tests
+assert that none of them appears in a trace.
+
+The run is committed in the same transaction as the `week_plans` row, so a
+stored plan always has its run. A failed generation stores a failed run on its
+own: a model failure fails at `propose_week` (the model call shows the provider
+error type), a proposal with nothing usable fails at `store_plan` with
+`check_week` showing why each block was rejected, and nothing to plan from fails
+at `collect_evidence` before any model call. The plan allowance is still
+refunded.
+
+`tests/integration/test_week_plan_trace.py` cross-checks the trace against the
+stored row and the API response: block counts, rejection totals
+(`rejected_block_count`), the prompt name and version, and a proposal using
+every `BlockCategory` must agree across all three.
+
+#### Failure diagnostics
+
+A failed run used to record only the outermost exception type and the node it
+failed in. That loses the two things an investigation starts from: what the
+failure *began* as, and where in the code it surfaced. A plan that failed
+because the provider was down read `PlanUnavailableError`; the
+`LLMUnavailableError` underneath was recorded nowhere. A failure outside every
+node, such as the final write, recorded `failed_node: null` and nothing else.
+
+Every failed step and every failed run now records, alongside `error_type`:
+
+| Field | Example | Meaning |
+| --- | --- | --- |
+| `error_chain` | `["LLMUnavailableError"]` | the types it was raised from, outermost first; the last is the root cause |
+| `error_location` | `app/application/planning/service.py:199 in _propose` | the innermost frame of application code it passed through |
+
+Both are code metadata. The message is still never recorded, because messages
+carry user data and connection details (a test raises one containing an IP
+address and asserts it appears nowhere). The chain follows `raise … from` and
+implicit context as a traceback does, honours `from None`, is bounded at five
+links and guards against cycles. The location skips tracing's own wrappers,
+which only re-raise, so a failed model call points at the node that made it. If
+the outermost error was raised outside application code, it is taken from the
+first cause that passed through it. A failure outside every node keeps
+`failed_node: null`, and `error_location` now says where it happened.
+
+**Cancellation is not failure.** A step or model call stopped from outside (a
+timeout, or a client that disconnected) is recorded as `cancelled`, not
+`failed` with `CancelledError`, and `failed_step()` never reports one as the
+failing node.
+
+**A failing node is logged when it fails**, as `graph_step_failed` (WARNING)
+with the node, run kind, duration, error type, chain and location. Completed
+steps log `graph_step_completed` at DEBUG, and cancelled ones
+`graph_step_cancelled`. Every log line inside a run carries `run_id` and
+`run_kind`. This matters most when the database is what failed: the run record
+cannot be written then, but the failure is already in the logs.
+
+**One failed-run path for every kind of run.** Conversation, onboarding,
+analysis and planning each had their own copy of rollback, store and log. They
+now share `store_failed_run`, which emits one event, `agent_run_failed`, with
+the same fields for every kind and `run_stored: false` when the record could
+not be written (the write's own error is logged beside it as
+`run_record_failed`). An alert can key on that one event.
+
+Traces stored before these fields existed still read; the fields default to
+empty.
+
+#### Run health
+
+A trace answers "what happened in this run". Operating the system needs the
+aggregate: which node fails, how often, why and where, which steps are slow,
+and which model calls fail even when the run survives them (a degraded run is
+not a failed one, so an outage of one model can otherwise go unnoticed).
+
+```bash
+uv run python -m scripts.run_stats                        # the last 24 hours
+uv run python -m scripts.run_stats --hours 168 --kind analysis
+uv run python -m scripts.run_stats --json                 # for a dashboard or an alert
+```
+
+```text
+Nodes
+  kind             node                 runs  failed  fail %  cancelled  p50 ms  p95 ms  max ms
+  analysis         build_evidence       2     0       0.0%    0          2.0     2.9     3.0
+  analysis         generate_analysis    2     1       50.0%   0          20.0    29.0    30.0
+  onboarding_turn  generate_question    1     0       0.0%    1          4.0     4.0     4.0
+
+Failed runs, by where and why
+  runs  kind       node               error                 root cause            location
+  1     week_plan  (outside nodes)    IntegrityError        UniqueViolationError  app/application/planning/service.py:170 in _generate
+  1     analysis   generate_analysis  PlanUnavailableError  LLMUnavailableError   app/graph/analysis/nodes/generate_analysis.py:27 in generate_analysis
+
+Failed model calls, including ones the run survived
+  calls  kind             node                 call                   error
+  1      onboarding_turn  extract_information  onboarding.extraction  LLMTimeoutError
+```
+
+(An excerpt, from the runs the integration tests seed; the command also prints a
+per-kind summary and a "last seen" column.)
+
+Everything is aggregated in PostgreSQL (`jsonb_array_elements` over each run's
+steps, `percentile_cont` for timings) over a time window, using a new
+`started_at` index that the retention job also benefits from. Migration `0014`
+builds it `CONCURRENTLY`, because every chat turn writes to this table. The
+report spans every user, but holds only node names, counts, timings,
+exception types and code locations. It is a command rather than an endpoint
+for the same reason evaluation endpoints do not exist yet: there is no
+operator role. Windows are capped at 90 days, though runs only exist for
+`RUN_RETENTION_DAYS`.
+
+The analysis graph now carries an exact `recursion_limit`, as the conversation
+graph does: one evidence step, then a generation and a verification per
+attempt, with tests that run every budget to exhaustion and fail one step
+below. That bounds both a broken loop and the size of any trace it writes.
+The onboarding graph is acyclic and needs none.
+
+#### What changed, and how it is verified
+
+Tracing began with conversation turns (Phase 14). It was then extended to
+every workflow and hardened:
+
+| Change | Where |
+| --- | --- |
+| Run kinds `onboarding_turn`, `analysis`, `week_plan` beside `conversation_turn` (stored by name; no migration) | `infrastructure/database/models/run.py` |
+| All four onboarding nodes and all three analysis nodes wrapped in `run_step` by a `_traced` helper in each graph builder, as the conversation graph does | `graph/onboarding/graph.py`, `graph/analysis/graph.py` |
+| `OnboardingService._advance` and `AnalysisService.generate` bind a `RunTrace` and commit the run with their result; `PlanningService.generate` traces its four stages directly | `application/{onboarding,analysis,planning}/service.py` |
+| Per-node allow-lists for step detail: counts, scores and fixed vocabularies only | `application/onboarding/steps.py`, `application/analysis/steps.py`, `describe_plan_step` in `application/planning/service.py` |
+| `run_id` on the onboarding, analysis and week-plan responses | `schemas/{onboarding,analysis,plan}.py` |
+| Failure diagnostics: `error_chain` and `error_location` on runs and steps; `cancelled` as its own status | `infrastructure/observability/tracing.py`, migration `0014` |
+| Logs at the moment of failure (`graph_step_failed`), and `run_kind` on every log line in a run | `infrastructure/observability/tracing.py`, `logging.py` |
+| One failed-run path for all four kinds, emitting `agent_run_failed` | `store_failed_run` in `application/runs/recording.py` |
+| Run health across runs: per kind, per node, failure groups, failed model calls | `RunRepository` aggregates, `application/runs/health.py`, `scripts/run_stats.py` |
+| An exact `recursion_limit` on the analysis graph | `graph/analysis/graph.py` (`max_steps`) |
+
+The tests that pin it, all against the deterministic fake model:
+
+| Test file | What it proves |
+| --- | --- |
+| `tests/graph/test_onboarding_trace.py`, `tests/graph/test_analysis_trace.py` | every node declared in each graph appears in a trace, in order, with its model calls; retries, the attempt budget, the exact step limit and a raising node |
+| `tests/unit/test_onboarding_analysis_trace_detail.py`, `tests/unit/test_week_plan_trace.py` | step detail is counts and outcomes only; nothing the user said or the model wrote is kept |
+| `tests/unit/test_failure_diagnostics.py` | cause chains (explicit, implicit, suppressed, bounded, cyclic), code locations, cancellation, logs at failure, `store_failed_run` including when the database is down |
+| `tests/integration/test_onboarding_trace.py`, `tests/integration/test_analysis_trace.py`, `tests/integration/test_week_plan_trace.py` | over real HTTP and PostgreSQL: each trace agrees with the rows and response it produced; failed runs (in a node, on a retry, on the opening turn, after the graph) report `failed_node` and `error_type` through the runs endpoints; ownership; refunds survive a failed run |
+| `tests/integration/test_run_diagnostics.py` | chains and locations through the API, traces stored before the new fields still read, and the run-health aggregates against seeded runs |
+| `tests/unit/test_run_stats_render.py` | the operator report's output |
+
+Each behaviour was also checked the other way: bugs were introduced on purpose
+(an unwrapped node, a dropped root cause, cancellation counted as failure, a
+lost log when the database is down, among others), and the tests failed on
+every one before the code was restored.
+
+To check it yourself:
+
+```bash
+uv run pytest tests/graph tests/unit          # no database needed
+uv run pytest tests/integration               # needs PostgreSQL; skips without it
+uv run mypy app
+uv run ruff check
+uv run alembic upgrade head && uv run alembic check
+```
 
 #### Why there is no LangGraph checkpointer
 
@@ -1223,7 +1479,8 @@ would. Queue behaviour — atomic enqueue, claim contention, lease expiry,
 superseded claims, retry and dead-lettering, cross-user payloads — is tested
 against real PostgreSQL with a client that has no worker behind it.
 
-Not done yet: worker runs are not traced as runs (only conversation turns are),
+Not done yet: worker runs are not traced as runs (conversation, onboarding,
+analysis and week-plan runs are),
 polling is used rather than `LISTEN/NOTIFY` (a second's delay is acceptable for
 extraction), and succeeded jobs are kept indefinitely.
 
@@ -1416,8 +1673,11 @@ API docs are off in production.
   PRD's 50–100 cases.
 - **Evaluation endpoints** (`/api/v1/evaluations`) need an operator role, which
   does not exist.
-- **Only conversation turns are traced**; onboarding, analysis and worker jobs
-  are not.
+- **Worker jobs are not traced**; conversation turns, onboarding turns,
+  analyses and week plans are.
+- **Run health is a command, not a dashboard.** `scripts.run_stats` reports
+  node failure rates and timings on demand; nothing exports metrics
+  continuously or alerts yet. `--json` is the seam for either.
 - **Caching** was measured and deferred; revisit with live-model traces.
 - **A client that disconnects mid-stream** leaves no run and stores nothing; that
   path is not tested, because the test client cannot simulate a disconnect.
@@ -1726,5 +1986,6 @@ Each phase is a coherent, testable milestone.
 | 15 ✅ | Background processing; caching measured and deferred          |
 | 16 ✅ | Evaluation framework                                         |
 | 17 ✅ | Performance, reliability and security hardening              |
+| 18 ✅ | Tracing for onboarding, analysis and planning; failure diagnostics and run health |
 
 Dependencies are added when the phase that needs them begins, not upfront.
