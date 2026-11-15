@@ -41,6 +41,14 @@ def test_production_without_debug_is_accepted():
     assert settings.is_production is True
 
 
+@pytest.fixture
+def without_local_api_key(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Hide a developer's own key, from .env or the shell, from tests that need none."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+
+@pytest.mark.usefixtures("without_local_api_key")
 def test_production_requires_model_credentials():
     """A production deployment that cannot reach a model should not start."""
     with pytest.raises(ValidationError, match="openai_api_key"):
@@ -56,6 +64,7 @@ def test_production_requires_usage_limits():
         )
 
 
+@pytest.mark.usefixtures("without_local_api_key")
 def test_model_credentials_are_optional_outside_production():
     assert build_settings(environment="local").openai_api_key is None
 
