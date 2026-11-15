@@ -452,7 +452,7 @@ the current implementation actually consumes.
 | `RATE_LIMIT_ENABLED`                | `true`  | Must be true in production                          |
 | `USAGE_LIMITS_ENABLED`              | `true`  | Plan allowances. Must be true in production         |
 | `MEMORY_EXTRACTION_ENABLED`         | `true`  | Off runs the product without memory                 |
-| `EMBEDDING_MODEL`                   | `text-embedding-3-small` | Changing it needs a re-embed        |
+| `EMBEDDING_MODEL`                   | `text-embedding-3-small` | Changing it needs a [backfill](#backfilling-embeddings) |
 | `EMBEDDING_TIMEOUT_SECONDS`         | `15`    | Per attempt                                         |
 | `MEMORY_RETRIEVAL_LIMIT`            | `6`     | Memories one answer may draw on                     |
 | `MEMORY_SIMILARITY_THRESHOLD`       | `0.25`  | **Uncalibrated** — see below                        |
@@ -618,6 +618,7 @@ app/
 
 migrations/                              Alembic environment and revisions
 scripts/
+├── backfill_embeddings.py               re-embed memories search cannot use
 ├── benchmark_turn.py                    per-step latency of a turn, model excluded
 ├── grant_plan.py                        put an account on a plan by hand
 └── run_stats.py                         run health: node failure rates and timings
@@ -1759,6 +1760,47 @@ Deduplication now prefers vector similarity over token overlap at the same seam
 it was built behind, so a paraphrase is recognised as a restatement. Token
 overlap remains the fallback when either side has no vector, because a failed
 embedding should make deduplication worse, not absent.
+
+#### Backfilling embeddings
+
+Both kinds of stale memory, with no vector or with one from a previous model,
+are re-embedded by a command:
+
+```bash
+uv run python -m scripts.backfill_embeddings --dry-run   # how many; no provider calls
+uv run python -m scripts.backfill_embeddings             # embed them
+```
+
+Run it after changing `EMBEDDING_MODEL` or after an embedding outage. It walks
+stale rows once, in batches (`--batch-size`, default 50), with one provider call
+and one short transaction per batch. No connection is held during the call. It
+only reads rows search would skip, so running it again is safe. A run with
+nothing to do costs one query and no provider calls, which also makes it safe
+to schedule.
+
+- **A memory the provider fails on is left exactly as it was**, and the run
+  carries on; the next run tries it again. A batch the provider rejects is
+  retried one memory at a time, to find the input at fault. A batch that fails
+  because the provider is unavailable or rate-limiting is skipped whole, since
+  retrying it item by item would only multiply calls into an outage. A missing
+  or rejected API key stops the run, because every remaining call would fail
+  the same way. The command exits 1 if anything was left unembedded.
+- **A vector is only written while it still applies**: the row must still be
+  stale and still hold the text that was embedded. A user's edit during the
+  run re-embeds or clears the vector itself and is never overwritten with a
+  vector for the old words.
+- **`updated_at` is not touched.** It tells the user when a memory last
+  changed, and a new vector for the same words is not a change they made.
+- **Only what search can return is embedded by default**: active, unexpired
+  memories. `--include-inactive` adds archived and superseded ones. Expired
+  memories are never embedded, because nothing makes an expired memory current
+  again. Restoring an archived memory does not re-embed it, so one restored
+  with a stale vector is found by meaning only after the next run.
+
+It is a command rather than worker housekeeping because the worker runs one job
+at a time. Minutes of provider calls there would hold up users' memory
+extraction, and several workers would pay to embed the same rows. A model
+change is a deliberate operator step, and it should be run and seen to finish.
 
 #### No ANN index yet, deliberately
 
