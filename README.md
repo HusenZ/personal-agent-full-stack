@@ -1794,8 +1794,12 @@ to schedule.
 - **Only what search can return is embedded by default**: active, unexpired
   memories. `--include-inactive` adds archived and superseded ones. Expired
   memories are never embedded, because nothing makes an expired memory current
-  again. Restoring an archived memory does not re-embed it, so one restored
-  with a stale vector is found by meaning only after the next run.
+  again. Archived and superseded memories are re-embedded when they come back
+  instead: restoring one to active (`PATCH … {"status": "active"}`) embeds it
+  if its vector is missing or from another model. That costs one call per
+  restore rather than one per inactive memory on every model change. If that
+  call fails the restore still succeeds and the old vector is kept, for the
+  next backfill to pick up.
 
 It is a command rather than worker housekeeping because the worker runs one job
 at a time. Minutes of provider calls there would hold up users' memory
@@ -1874,7 +1878,9 @@ Users can list, correct, archive and delete what is held about them. `DELETE`
 lifecycle state, but a tombstone still holding the content is not a deletion, and
 PRD 32 puts this under privacy. `ARCHIVED` covers "keep it, stop using it".
 Supersession cannot be asserted by a client — it is a conclusion the system draws
-from a contradiction.
+from a contradiction. Correcting a memory re-embeds it, and so does restoring one
+whose vector search would skip (see
+[Backfilling embeddings](#backfilling-embeddings)).
 
 `MEMORY_EXTRACTION_ENABLED=false` turns extraction off: no jobs are queued.
 

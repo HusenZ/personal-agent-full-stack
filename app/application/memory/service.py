@@ -132,11 +132,16 @@ class MemoryService:
         self, memory_id: uuid.UUID, user_id: uuid.UUID, command: UpdateMemoryCommand
     ) -> Memory:
         memory = await self._require(memory_id, user_id)
+        was_active = memory.status is MemoryStatus.ACTIVE
+        restored = command.status is MemoryStatus.ACTIVE and not was_active
 
         if command.content is not None:
             memory.content = command.content
             # The old vector no longer matches the text, so replace or clear it.
-            await self._reembed(memory)
+            await self._reembed(memory, text_changed=True)
+        elif restored and self._worth_embedding_on_restore(memory):
+            # Search skips this memory's vector; restoring is when it starts to matter.
+            await self._reembed(memory, text_changed=False)
         if command.importance is not None:
             memory.importance = command.importance
         if command.status is not None:
@@ -166,7 +171,24 @@ class MemoryService:
 
         logger.info("memory_deleted", extra={"user_id": str(user_id)})
 
-    async def _reembed(self, memory: Memory) -> None:
+    def _worth_embedding_on_restore(self, memory: Memory) -> bool:
+        """A restored memory search could return, but whose vector it would skip.
+
+        Archived and superseded memories are left stale by the backfill, since
+        search never returns them; this catches them on their way back. An
+        expired one is left alone: search won't return it even when active.
+        """
+        stale = memory.embedding is None or memory.embedding_model != self._embedding_model
+        unexpired = memory.expires_at is None or memory.expires_at > datetime.now(tz=UTC)
+        return stale and unexpired
+
+    async def _reembed(self, memory: Memory, *, text_changed: bool) -> None:
+        """Give the memory a vector from the configured model.
+
+        If the provider fails, a vector for text the memory no longer has is
+        cleared, but one for its current text is kept as it was for a later
+        backfill: the update itself still goes through either way.
+        """
         try:
             vector = await self._embeddings.embed_query(memory.content)
         except LLMError as error:
@@ -174,8 +196,9 @@ class MemoryService:
                 "memory_reembedding_failed",
                 extra={"memory_id": str(memory.id), "error_type": type(error).__name__},
             )
-            memory.embedding = None
-            memory.embedding_model = None
+            if text_changed:
+                memory.embedding = None
+                memory.embedding_model = None
             return
 
         memory.embedding = vector

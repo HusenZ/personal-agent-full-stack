@@ -1,3 +1,6 @@
+import uuid
+from datetime import UTC, datetime, timedelta
+
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select, update
@@ -7,10 +10,11 @@ from app.domain.memory.types import (
     MemoryCandidate,
     MemoryDurability,
     MemoryExtraction,
+    MemorySource,
     MemoryStatus,
     MemoryType,
 )
-from app.infrastructure.database.models import Memory
+from app.infrastructure.database.models import Memory, User
 from app.infrastructure.llm.exceptions import LLMUnavailableError
 from tests.fakes import FakeEmbeddingProvider, FakeLLMProvider
 from tests.integration.conftest import sessions_like
@@ -134,6 +138,202 @@ class TestEmbeddingOnWrite:
         after = (await db_session.execute(select(Memory))).scalar_one().embedding
         assert before is not None and after is not None
         assert list(after) != list(before)
+
+
+class TestEmbeddingOnRestore:
+    """Archived and superseded memories are left stale by the backfill, because
+    search never returns them; restoring one is when a vector starts to matter.
+
+    Memories are arranged directly rather than through chat, so these tests do
+    not depend on the job queue.
+    """
+
+    @staticmethod
+    async def arrange(
+        client: AsyncClient,
+        session: AsyncSession,
+        content: str,
+        *,
+        status: MemoryStatus,
+        model: str | None = None,
+        expires_at: datetime | None = None,
+    ) -> tuple[dict[str, str], Memory]:
+        headers = await authenticate(client, "ada@example.com")
+        owner = (
+            await session.execute(select(User).where(User.email == "ada@example.com"))
+        ).scalar_one()
+        memory = Memory(
+            id=uuid.uuid4(),
+            user_id=owner.id,
+            content=content,
+            memory_type=MemoryType.FACT,
+            status=status,
+            durability=MemoryDurability.LONG_TERM,
+            source=MemorySource.CONVERSATION,
+            importance=0.6,
+            confidence=0.9,
+            expires_at=expires_at,
+            # A separate double, so the app's provider records only the app's calls.
+            embedding=await FakeEmbeddingProvider().embed_query(content) if model else None,
+            embedding_model=model,
+        )
+        session.add(memory)
+        await session.commit()
+        return headers, memory
+
+    @staticmethod
+    async def reload(session: AsyncSession, memory: Memory) -> Memory:
+        # Read before expiring: an expired attribute would lazy-load outside async.
+        memory_id = memory.id
+        session.expire_all()
+        return (await session.execute(select(Memory).where(Memory.id == memory_id))).scalar_one()
+
+    async def set_status(
+        self, client: AsyncClient, headers: dict[str, str], memory: Memory, status: str
+    ) -> None:
+        response = await client.patch(
+            f"/api/v1/memories/{memory.id}", headers=headers, json={"status": status}
+        )
+        assert response.status_code == 200
+
+    async def test_restoring_an_archived_memory_without_a_vector_embeds_it(
+        self,
+        plain_client: AsyncClient,
+        db_session: AsyncSession,
+        embedding_provider: FakeEmbeddingProvider,
+    ):
+        headers, memory = await self.arrange(
+            plain_client, db_session, "I play the cello", status=MemoryStatus.ARCHIVED
+        )
+
+        await self.set_status(plain_client, headers, memory, "active")
+
+        restored = await self.reload(db_session, memory)
+        assert embedding_provider.embedded == ["I play the cello"]
+        assert restored.embedding is not None
+        assert restored.embedding_model == "test-embedding-model"
+
+    async def test_restoring_a_superseded_memory_replaces_a_vector_from_another_model(
+        self,
+        plain_client: AsyncClient,
+        db_session: AsyncSession,
+        embedding_provider: FakeEmbeddingProvider,
+    ):
+        headers, memory = await self.arrange(
+            plain_client,
+            db_session,
+            "I play the cello",
+            status=MemoryStatus.SUPERSEDED,
+            model="some-older-model",
+        )
+
+        await self.set_status(plain_client, headers, memory, "active")
+
+        assert embedding_provider.embedded == ["I play the cello"]
+        assert (await self.reload(db_session, memory)).embedding_model == "test-embedding-model"
+
+    async def test_restoring_a_memory_whose_vector_is_current_makes_no_call(
+        self,
+        plain_client: AsyncClient,
+        db_session: AsyncSession,
+        embedding_provider: FakeEmbeddingProvider,
+    ):
+        headers, memory = await self.arrange(
+            plain_client,
+            db_session,
+            "I play the cello",
+            status=MemoryStatus.ARCHIVED,
+            model="test-embedding-model",
+        )
+
+        await self.set_status(plain_client, headers, memory, "active")
+
+        assert embedding_provider.embedded == []
+
+    async def test_restoring_an_expired_memory_makes_no_call(
+        self,
+        plain_client: AsyncClient,
+        db_session: AsyncSession,
+        embedding_provider: FakeEmbeddingProvider,
+    ):
+        """Search won't return it even when active, so a vector would go unused."""
+        headers, memory = await self.arrange(
+            plain_client,
+            db_session,
+            "I am in Paris this week",
+            status=MemoryStatus.ARCHIVED,
+            expires_at=datetime.now(tz=UTC) - timedelta(days=1),
+        )
+
+        await self.set_status(plain_client, headers, memory, "active")
+
+        assert embedding_provider.embedded == []
+
+    async def test_archiving_a_memory_makes_no_call(
+        self,
+        plain_client: AsyncClient,
+        db_session: AsyncSession,
+        embedding_provider: FakeEmbeddingProvider,
+    ):
+        headers, memory = await self.arrange(
+            plain_client, db_session, "I play the cello", status=MemoryStatus.ACTIVE
+        )
+
+        await self.set_status(plain_client, headers, memory, "archived")
+
+        assert embedding_provider.embedded == []
+
+    async def test_a_failed_embedding_still_restores_and_keeps_the_old_vector(
+        self,
+        plain_client: AsyncClient,
+        db_session: AsyncSession,
+        embedding_provider: FakeEmbeddingProvider,
+    ):
+        """The words haven't changed, so the old vector is left for a backfill
+        rather than thrown away."""
+        headers, memory = await self.arrange(
+            plain_client,
+            db_session,
+            "I play the cello",
+            status=MemoryStatus.ARCHIVED,
+            model="some-older-model",
+        )
+        before = list((await self.reload(db_session, memory)).embedding or [])
+        embedding_provider._failure = LLMUnavailableError("embeddings down")
+
+        await self.set_status(plain_client, headers, memory, "active")
+
+        restored = await self.reload(db_session, memory)
+        assert restored.status is MemoryStatus.ACTIVE
+        assert restored.embedding_model == "some-older-model"
+        assert list(restored.embedding or []) == before
+
+    async def test_a_failed_embedding_after_an_edit_clears_the_old_vector(
+        self,
+        plain_client: AsyncClient,
+        db_session: AsyncSession,
+        embedding_provider: FakeEmbeddingProvider,
+    ):
+        """Unlike a restore: the old vector describes words the memory no longer has."""
+        headers, memory = await self.arrange(
+            plain_client,
+            db_session,
+            "I play the cello",
+            status=MemoryStatus.ACTIVE,
+            model="test-embedding-model",
+        )
+        embedding_provider._failure = LLMUnavailableError("embeddings down")
+
+        response = await plain_client.patch(
+            f"/api/v1/memories/{memory.id}",
+            headers=headers,
+            json={"content": "I play the double bass"},
+        )
+
+        assert response.status_code == 200
+        edited = await self.reload(db_session, memory)
+        assert edited.embedding is None
+        assert edited.embedding_model is None
 
 
 class TestRetrievalInConversation:
