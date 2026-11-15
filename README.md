@@ -27,6 +27,24 @@ The repository has two parts: a production-style **FastAPI backend** (`app/`)
 and a **Flutter mobile app** for Android and iOS (`mobile/`) built on the same
 public REST and SSE API.
 
+<table>
+  <tr>
+    <td width="25%"><img src="docs/screenshots/today.png" alt="Today screen: how well the assistant knows you, and today's part of your week plan"></td>
+    <td width="25%"><img src="docs/screenshots/chat.png" alt="Chat screen: each reply is followed by a receipt saying what it drew on and that it was checked"></td>
+    <td width="25%"><img src="docs/screenshots/receipt.png" alt="How I answered: the steps behind a reply, including totals counted from records rather than estimated"></td>
+    <td width="25%"><img src="docs/screenshots/week_plan.png" alt="Week plan: seven days of blocks built around the user's goals and constraints"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Today</b><br><sub>What it knows, and today's plan</sub></td>
+    <td align="center"><b>Chat</b><br><sub>Every reply carries a receipt</sub></td>
+    <td align="center"><b>How I answered</b><br><sub>Totals are counted, not guessed</sub></td>
+    <td align="center"><b>Week plan</b><br><sub>Built around goals and limits</sub></td>
+  </tr>
+</table>
+
+<sub>Rendered from the app's own Flutter screens with sample data. More screens
+and how to regenerate them are under [Mobile app](#mobile-app).</sub>
+
 ---
 
 ## At a glance
@@ -168,10 +186,9 @@ instructions are in [Setup](#setup) and [Run](#run).
 
 | Document | Purpose |
 |---|---|
-| [PRD.md](PRD.md) | What the product does and why |
-| [ENGINEERING_GUIDELINES.md](ENGINEERING_GUIDELINES.md) | How the system is engineered |
-| [mobile/README.md](mobile/README.md) | The Flutter client |
-| [CLAUDE.md](CLAUDE.md) | Working rules for AI-assisted development |
+| [mobile/README.md](mobile/README.md) | The Flutter client: screens, setup and checks |
+| [.env.example](.env.example) | Every setting, with local-only placeholder values |
+| [LICENSE](LICENSE) | MIT |
 
 > **Testing approach.** All 974 tests run against a deterministic fake model,
 > so the suite is fast, free and repeatable, and fails only for reasons inside
@@ -244,6 +261,31 @@ Response caching was measured and deliberately not added; see
 A Flutter client for Android and iOS lives in [`mobile/`](mobile/README.md). It
 consumes the same REST API and SSE stream as any client would; the backend
 holds no mobile-specific logic.
+
+<table>
+  <tr>
+    <td width="25%"><img src="docs/screenshots/onboarding.png" alt="Onboarding: the adaptive interview asks one question at a time and shows how complete the profile is"></td>
+    <td width="25%"><img src="docs/screenshots/memory.png" alt="Memory: everything the assistant remembers, searchable and filterable by kind"></td>
+    <td width="25%"><img src="docs/screenshots/analysis.png" alt="Analysis: each point labelled as fact, observation, inference, recommendation or uncertainty, with a confidence"></td>
+    <td width="25%"><img src="docs/screenshots/welcome.png" alt="Welcome: the first screen a new user sees"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Onboarding</b><br><sub>Asks what it still doesn't know</sub></td>
+    <td align="center"><b>Memory</b><br><sub>Review, correct, archive, delete</sub></td>
+    <td align="center"><b>Analysis</b><br><sub>Every point labelled by kind</sub></td>
+    <td align="center"><b>Welcome</b><br><sub>Why it differs from a chatbot</sub></td>
+  </tr>
+</table>
+
+The screenshots are not captured from a device. They are rendered by
+[`mobile/tool/readme_screenshots_test.dart`](mobile/tool/readme_screenshots_test.dart),
+which draws the app's real screens with one fictional person's sample data, so
+they need no backend, emulator or model. After changing a screen, regenerate
+them:
+
+```bash
+cd mobile && flutter test tool/readme_screenshots_test.dart
+```
 
 ## Requirements
 

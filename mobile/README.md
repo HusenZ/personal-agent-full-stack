@@ -107,6 +107,18 @@ dart format --output none --set-exit-if-changed lib test
 CONTRACT_API_BASE_URL=http://localhost:8000 flutter test test/contract
 ```
 
+## Screenshots
+
+The images in the repository README are rendered, not captured: a widget test
+draws the real screens with sample data, using the Roboto and Material icon
+fonts from the Flutter SDK, and writes framed PNGs to `../docs/screenshots/`.
+It needs no backend or emulator, and it lives in `tool/` so a plain
+`flutter test` never runs it.
+
+```bash
+flutter test tool/readme_screenshots_test.dart
+```
+
 ## Structure
 
 ```text
