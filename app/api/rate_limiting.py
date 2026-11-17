@@ -40,6 +40,10 @@ CHAT_PER_USER = RateLimitRule(name="chat_user", limit=120, window_seconds=3600)
 # Deletion checks a password, so it's a guessing surface for stolen tokens.
 DELETE_ACCOUNT_PER_USER = RateLimitRule(name="delete_account_user", limit=5, window_seconds=900)
 
+# An export reads everything at once; nobody needs a fresh copy every minute,
+# and a stolen token should not get to pull the whole account repeatedly.
+EXPORT_PER_USER = RateLimitRule(name="export_user", limit=5, window_seconds=3600)
+
 type RateLimitDependency = Callable[..., Coroutine[Any, Any, None]]
 
 
@@ -124,3 +128,4 @@ AnalysisRateLimit = Annotated[None, Depends(limit_by_user(ANALYSIS_PER_USER))]
 PlanRateLimit = Annotated[None, Depends(limit_by_user(PLAN_PER_USER))]
 ChatRateLimit = Annotated[None, Depends(limit_by_user(CHAT_PER_USER))]
 DeleteAccountRateLimit = Annotated[None, Depends(limit_by_user(DELETE_ACCOUNT_PER_USER))]
+ExportRateLimit = Annotated[None, Depends(limit_by_user(EXPORT_PER_USER))]

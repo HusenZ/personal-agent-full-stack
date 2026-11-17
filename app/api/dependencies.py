@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncIterator
 from typing import Annotated, cast
 
@@ -10,6 +11,7 @@ from app.application.analysis.service import AnalysisService
 from app.application.auth.exceptions import InactiveUserError
 from app.application.auth.service import AuthService
 from app.application.conversation.service import ConversationService, ExtractionSettings
+from app.application.export.service import ExportService
 from app.application.memory.service import MemoryService
 from app.application.onboarding.service import OnboardingService
 from app.application.planning.service import PlanningService
@@ -262,3 +264,24 @@ def get_subscription_service(session: SessionDep) -> SubscriptionService:
 
 
 SubscriptionServiceDep = Annotated[SubscriptionService, Depends(get_subscription_service)]
+
+
+def get_export_service(
+    request: Request, session: SessionDep, settings: SettingsDep
+) -> ExportService:
+    return ExportService(
+        session=session,
+        slots=cast(asyncio.Semaphore, request.app.state.export_slots),
+        slot_timeout_seconds=settings.export_queue_timeout_seconds,
+        profiles=ProfileRepository(session),
+        onboarding_sessions=OnboardingSessionRepository(session),
+        analyses=AnalysisRepository(session),
+        conversations=ConversationRepository(session),
+        memories=MemoryRepository(session),
+        events=EventRepository(session),
+        plans=WeekPlanRepository(session),
+        subscriptions=SubscriptionRepository(session),
+    )
+
+
+ExportServiceDep = Annotated[ExportService, Depends(get_export_service)]

@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import BaseModel, Field, StringConstraints, model_validator
+from pydantic import AfterValidator, BaseModel, Field, StringConstraints, model_validator
 
 from app.domain.memory.types import (
     MemoryDurability,
@@ -10,9 +10,12 @@ from app.domain.memory.types import (
     MemoryStatus,
     MemoryType,
 )
+from app.schemas.common import reject_nul_characters
 
 MemoryContent = Annotated[
-    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=1000),
+    AfterValidator(reject_nul_characters),
 ]
 
 

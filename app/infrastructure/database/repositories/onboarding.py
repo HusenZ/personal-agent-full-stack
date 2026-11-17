@@ -3,6 +3,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.infrastructure.database.batching import fetch_all_in_batches
 from app.infrastructure.database.models import OnboardingSession, OnboardingStatus
 
 
@@ -31,6 +32,15 @@ class OnboardingSessionRepository:
             .limit(1)
         )
         return (await self._session.execute(statement)).scalar_one_or_none()
+
+    async def all_for_user(self, user_id: uuid.UUID) -> list[OnboardingSession]:
+        """Every interview the user has had, oldest first."""
+        statement = (
+            select(OnboardingSession)
+            .where(OnboardingSession.user_id == user_id)
+            .order_by(OnboardingSession.created_at.asc(), OnboardingSession.id.asc())
+        )
+        return await fetch_all_in_batches(self._session, statement)
 
     def add(self, onboarding_session: OnboardingSession) -> None:
         self._session.add(onboarding_session)

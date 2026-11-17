@@ -9,9 +9,14 @@ from app.schemas.common import ResponseMeta
 # Max page size stops a client fetching everything in one query.
 MAX_PAGE_SIZE = 100
 
+# Far beyond any real collection, but small enough that the offset it implies
+# (at most MAX_PAGE_SIZE times this) always fits Postgres's bigint. Unbounded,
+# a page like 10**20 overflowed the query parameter and failed with a 500.
+MAX_PAGE = 2**31 - 1
+
 
 class PageParams(BaseModel):
-    page: int = Field(default=1, ge=1)
+    page: int = Field(default=1, ge=1, le=MAX_PAGE)
     page_size: int = Field(default=20, ge=1, le=MAX_PAGE_SIZE)
 
     @property
@@ -20,7 +25,7 @@ class PageParams(BaseModel):
 
 
 def page_params(
-    page: Annotated[int, Query(ge=1)] = 1,
+    page: Annotated[int, Query(ge=1, le=MAX_PAGE)] = 1,
     page_size: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = 20,
 ) -> PageParams:
     return PageParams(page=page, page_size=page_size)

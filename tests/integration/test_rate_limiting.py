@@ -7,6 +7,7 @@ from httpx import ASGITransport, AsyncClient
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
+from app.api.rate_limiting import EXPORT_PER_USER
 from app.core.config import Settings
 from app.infrastructure.cache.rate_limiter import RateLimiter, RateLimitRule
 from app.main import create_app
@@ -384,3 +385,18 @@ class TestChatStreamLimits:
         assert int(streamed.headers["x-ratelimit-remaining"]) == (
             int(plain.headers["x-ratelimit-remaining"]) - 1
         )
+
+
+class TestExportLimit:
+    async def test_repeated_exports_are_capped_per_user(self, limited_client: AsyncClient):
+        """A stolen token must not be able to pull the whole account over and over."""
+        await register(limited_client, "ada@example.com")
+        token = (await login(limited_client, "ada@example.com")).json()["data"]["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        statuses = [
+            (await limited_client.get("/api/v1/account/export", headers=headers)).status_code
+            for _ in range(EXPORT_PER_USER.limit + 1)
+        ]
+
+        assert statuses == [200] * EXPORT_PER_USER.limit + [429]

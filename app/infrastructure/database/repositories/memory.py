@@ -3,11 +3,28 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, cast
 
-from sqlalchemy import ColumnElement, CursorResult, func, or_, select, update
+from sqlalchemy import ColumnElement, CursorResult, Row, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import defer
 
-from app.domain.memory.types import MemoryStatus, MemoryType
+from app.domain.memory.types import MemoryChange, MemoryStatus, MemoryType
+from app.infrastructure.database.batching import fetch_all_in_batches, fetch_rows_in_batches
 from app.infrastructure.database.models import Memory, MemoryVersion
+
+# id, memory_id, change, content, status, importance, confidence, reason, created_at
+type MemoryVersionRow = Row[
+    tuple[
+        uuid.UUID,
+        uuid.UUID,
+        MemoryChange,
+        str,
+        MemoryStatus,
+        float,
+        float,
+        str | None,
+        datetime,
+    ]
+]
 
 
 @dataclass(frozen=True)
@@ -105,6 +122,54 @@ class MemoryRepository:
         memories = list((await self._session.execute(statement)).scalars().all())
 
         return memories, int(total or 0)
+
+    async def all_for_user(self, user_id: uuid.UUID) -> list[Memory]:
+        """Every memory of the user in any status, oldest first and unpaginated.
+
+        The vector and search columns are not loaded. Nothing reading every
+        memory at once needs them, and parsing a 1536-float vector per row was
+        most of the cost of a large account's export. Touching either on a row
+        loaded here raises rather than quietly issuing a query per row.
+        """
+        statement = (
+            select(Memory)
+            .where(Memory.user_id == user_id)
+            .options(
+                defer(Memory.embedding, raiseload=True),
+                defer(Memory.search_vector, raiseload=True),
+            )
+            .order_by(Memory.created_at.asc(), Memory.id.asc())
+        )
+        return await fetch_all_in_batches(self._session, statement)
+
+    async def all_versions_for_user(self, user_id: uuid.UUID) -> list[MemoryVersionRow]:
+        """The full change history of every memory the user owns, as plain rows.
+
+        Joined through the memory so ownership is part of the query. Ordered by
+        memory and then time, so grouping under each memory is a single pass.
+        Rows rather than entities, as there are several per memory.
+        """
+        statement = (
+            select(
+                MemoryVersion.id,
+                MemoryVersion.memory_id,
+                MemoryVersion.change,
+                MemoryVersion.content,
+                MemoryVersion.status,
+                MemoryVersion.importance,
+                MemoryVersion.confidence,
+                MemoryVersion.reason,
+                MemoryVersion.created_at,
+            )
+            .join(Memory, Memory.id == MemoryVersion.memory_id)
+            .where(Memory.user_id == user_id)
+            .order_by(
+                MemoryVersion.memory_id.asc(),
+                MemoryVersion.created_at.asc(),
+                MemoryVersion.id.asc(),
+            )
+        )
+        return await fetch_rows_in_batches(self._session, statement)
 
     async def stale_embeddings(
         self,

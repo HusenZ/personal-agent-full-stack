@@ -1,13 +1,18 @@
+from typing import get_args
+
 import pytest
 from fastapi import Request
 
 from app.api.rate_limiting import (
     ANALYSIS_PER_USER,
+    EXPORT_PER_USER,
     LOGIN_PER_ACCOUNT,
     LOGIN_PER_IP,
     REGISTER_PER_IP,
+    ExportRateLimit,
     client_address,
 )
+from app.api.v1.account import router as account_router
 from app.infrastructure.cache.rate_limiter import RateLimitRule
 
 
@@ -34,9 +39,26 @@ class TestRuleValidation:
 
     def test_rule_names_are_distinct(self):
         """Two rules sharing a name would share a counter and limit each other."""
-        rules = [REGISTER_PER_IP, LOGIN_PER_IP, LOGIN_PER_ACCOUNT, ANALYSIS_PER_USER]
+        rules = [
+            REGISTER_PER_IP,
+            LOGIN_PER_IP,
+            LOGIN_PER_ACCOUNT,
+            ANALYSIS_PER_USER,
+            EXPORT_PER_USER,
+        ]
 
         assert len({rule.name for rule in rules}) == len(rules)
+
+
+class TestExportRouteIsLimited:
+    def test_the_export_route_carries_the_export_limit(self):
+        """Checked without Redis, so a dropped dependency fails even where limits are off."""
+        [route] = [
+            r for r in account_router.routes if getattr(r, "path", None) == "/account/export"
+        ]
+        limiter = get_args(ExportRateLimit)[1].dependency
+
+        assert any(dep.call is limiter for dep in route.dependant.dependencies)  # type: ignore[attr-defined]
 
 
 class TestClientAddress:

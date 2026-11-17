@@ -360,6 +360,7 @@ device on it.
 | `POST /api/v1/auth/refresh`    | Rotate a refresh token.                          |
 | `POST /api/v1/auth/logout`     | Revoke a refresh token and its family.           |
 | `DELETE /api/v1/auth/account`  | Delete the account and all its data. Needs the password; `403 INCORRECT_PASSWORD` otherwise. |
+| `GET /api/v1/account/export`   | Download everything held about you as one JSON document: profile, interviews, analyses, conversations, memories with history, events, plans, subscription and usage. Never credentials. |
 | `POST /api/v1/onboarding/start`| Begin, or resume, the interview. A new interview's `run_id` names its trace. |
 | `POST /api/v1/onboarding/message` | Answer the current question. `run_id` names the turn's trace. |
 | `GET /api/v1/onboarding/status`| Progress and confidence breakdown.               |
@@ -439,6 +440,8 @@ the current implementation actually consumes.
 | `DATABASE_CONNECT_TIMEOUT_SECONDS`  | `5`     | TCP/handshake timeout                               |
 | `DATABASE_COMMAND_TIMEOUT_SECONDS`  | `30`    | Default per-statement timeout                       |
 | `DATABASE_HEALTH_TIMEOUT_SECONDS`   | `2`     | Bound on the readiness probe's query                |
+| `EXPORT_MAX_CONCURRENT`             | `2`     | Data exports at once per process; more queue        |
+| `EXPORT_QUEUE_TIMEOUT_SECONDS`      | `20`    | Queue wait before an export answers `503`           |
 | `JWT_SECRET`                        | —       | **Required.** At least 32 characters                |
 | `JWT_ALGORITHM`                     | `HS256` | `HS256`/`HS384`/`HS512`                             |
 | `ACCESS_TOKEN_TTL_SECONDS`          | `900`   | Access tokens cannot be revoked before expiry       |
@@ -499,6 +502,9 @@ Production settings that differ from `.env.example`:
 - `DATABASE_POOL_SIZE` + `DATABASE_MAX_OVERFLOW` below the database's
   connection limit, counting both the API and the worker. Small hosted plans
   allow few connections.
+- `EXPORT_MAX_CONCURRENT` below `DATABASE_POOL_SIZE`, so data exports can
+  never hold every pooled connection. Each export in flight also holds its
+  document in memory: about 150 MB for a year of heavy use.
 
 The mobile app's release build connects only over HTTPS, so the API needs a TLS
 certificate before the app can use it.
@@ -551,6 +557,7 @@ app/
 │   └── rate_limiting.py                 limits and the dependencies applying them
 ├── api/v1/
 │   ├── auth.py                          register / login / refresh / logout
+│   ├── account.py                       export of everything held about a user
 │   ├── profile.py                       profile read and update
 │   └── router.py                        /api/v1 aggregation
 ├── retrieval/
@@ -566,6 +573,7 @@ app/
 │   ├── analysis/                        evidence collection and persistence
 │   ├── auth/                            registration, login, token rotation
 │   ├── conversation/                    chat turns, listing and pagination
+│   ├── export/                          a user's data, assembled for download
 │   ├── memory/                          extraction, lifecycle and user control
 │   ├── onboarding/                      interview turns and persistence
 │   ├── planning/                        week plans, traced stage by stage

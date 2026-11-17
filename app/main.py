@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -99,6 +100,7 @@ def create_app(
     app.state.embedding_provider = embeddings
     app.state.redis_client = redis_client
     app.state.rate_limiter = RateLimiter(redis_client, fail_open=settings.rate_limit_fail_open)
+    app.state.export_slots = asyncio.Semaphore(settings.export_max_concurrent)
     app.state.onboarding_graph = build_onboarding_graph(provider, DEFAULT_ONBOARDING_POLICY)
     app.state.analysis_graph = build_analysis_graph(provider, DEFAULT_ANALYSIS_POLICY)
     app.state.memory_graph = build_memory_graph(provider, embeddings, DEFAULT_MEMORY_POLICY)

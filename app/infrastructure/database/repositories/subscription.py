@@ -6,6 +6,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.subscription.plans import Feature, Plan
+from app.infrastructure.database.batching import fetch_all_in_batches
 from app.infrastructure.database.models import Subscription, UsageCounter
 
 
@@ -65,6 +66,15 @@ class SubscriptionRepository:
             )
             .values(used=UsageCounter.used - 1)
         )
+
+    async def all_usage_for_user(self, user_id: uuid.UUID) -> list[UsageCounter]:
+        """Every usage counter the user has, across all periods, oldest first."""
+        statement = (
+            select(UsageCounter)
+            .where(UsageCounter.user_id == user_id)
+            .order_by(UsageCounter.period_start.asc(), UsageCounter.feature.asc())
+        )
+        return await fetch_all_in_batches(self._session, statement)
 
     async def usage_in_period(self, user_id: uuid.UUID, period_start: date) -> dict[Feature, int]:
         rows = await self._session.execute(

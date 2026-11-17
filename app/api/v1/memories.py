@@ -20,7 +20,7 @@ PageParamsDep = Annotated[PageParams, Depends(page_params)]
 _DEFAULT_STATUSES = (MemoryStatus.ACTIVE,)
 
 
-def _to_response(memory: Memory) -> MemoryResponse:
+def to_memory_response(memory: Memory) -> MemoryResponse:
     return MemoryResponse(
         id=memory.id,
         content=memory.content,
@@ -66,7 +66,7 @@ async def list_memories(
     )
 
     return PaginatedResponse(
-        data=[_to_response(memory) for memory in page.items],
+        data=[to_memory_response(memory) for memory in page.items],
         meta=PageMeta.build(params, page.total_items, get_request_id()),
     )
 
@@ -90,7 +90,9 @@ async def update_memory(
         ),
     )
 
-    return DataResponse(data=_to_response(memory), meta=ResponseMeta(request_id=get_request_id()))
+    return DataResponse(
+        data=to_memory_response(memory), meta=ResponseMeta(request_id=get_request_id())
+    )
 
 
 @router.delete(

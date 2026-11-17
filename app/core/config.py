@@ -37,6 +37,13 @@ class Settings(BaseSettings):
     # Keep readiness probes fast even when the database is struggling.
     database_health_timeout_seconds: float = Field(default=2.0, gt=0)
 
+    # Data exports running at once per process. Each holds a pooled connection
+    # while it reads and a large document in memory while it is encoded, so a
+    # burst of them must queue rather than take the pool from everyone else.
+    export_max_concurrent: int = Field(default=2, ge=1)
+    # How long an export may queue for a slot before answering 503.
+    export_queue_timeout_seconds: float = Field(default=20.0, gt=0)
+
     # HS256 needs at least a 32-byte key.
     jwt_secret: SecretStr = Field(min_length=32)
     jwt_algorithm: Literal["HS256", "HS384", "HS512"] = "HS256"

@@ -3,6 +3,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.infrastructure.database.batching import fetch_all_in_batches
 from app.infrastructure.database.models import WeekPlan
 
 
@@ -27,6 +28,15 @@ class WeekPlanRepository:
             # Lock so two concurrent ticks don't overwrite each other.
             statement = statement.with_for_update()
         return (await self._session.execute(statement)).scalar_one_or_none()
+
+    async def all_for_user(self, user_id: uuid.UUID) -> list[WeekPlan]:
+        """Every plan made for the user, oldest first."""
+        statement = (
+            select(WeekPlan)
+            .where(WeekPlan.user_id == user_id)
+            .order_by(WeekPlan.created_at.asc(), WeekPlan.id.asc())
+        )
+        return await fetch_all_in_batches(self._session, statement)
 
     def add(self, plan: WeekPlan) -> None:
         self._session.add(plan)

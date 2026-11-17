@@ -1,9 +1,15 @@
 import uuid
+from datetime import datetime
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import Row, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.conversation.context import MessageRole
+from app.infrastructure.database.batching import fetch_all_in_batches, fetch_rows_in_batches
 from app.infrastructure.database.models import Conversation, Message
+
+# id, conversation_id, role, content, created_at
+type MessageRow = Row[tuple[uuid.UUID, uuid.UUID, MessageRole, str, datetime]]
 
 
 class ConversationRepository:
@@ -73,6 +79,38 @@ class ConversationRepository:
         messages = list((await self._session.execute(statement)).scalars().all())
 
         return messages, int(total or 0)
+
+    async def all_for_user(self, user_id: uuid.UUID) -> list[Conversation]:
+        """Every conversation the user has had, oldest first and unpaginated."""
+        statement = (
+            select(Conversation)
+            .where(Conversation.user_id == user_id)
+            .order_by(Conversation.created_at.asc(), Conversation.id.asc())
+        )
+        return await fetch_all_in_batches(self._session, statement)
+
+    async def all_messages_for_user(self, user_id: uuid.UUID) -> list[MessageRow]:
+        """Every message in every conversation the user owns, as plain rows.
+
+        One query joined through the conversation, so ownership is decided by the
+        database rather than by which conversation ids a caller passes in.
+        Ordered by conversation and then position, so grouping them back under
+        their conversations is a single pass. Rows rather than entities: this is
+        the largest read there is, and nothing here changes the messages.
+        """
+        statement = (
+            select(
+                Message.id,
+                Message.conversation_id,
+                Message.role,
+                Message.content,
+                Message.created_at,
+            )
+            .join(Conversation, Conversation.id == Message.conversation_id)
+            .where(Conversation.user_id == user_id)
+            .order_by(Message.conversation_id.asc(), Message.position.asc())
+        )
+        return await fetch_rows_in_batches(self._session, statement)
 
     async def recent_messages(self, conversation_id: uuid.UUID, limit: int) -> list[Message]:
         """The newest messages, returned oldest first.

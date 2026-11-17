@@ -3,7 +3,9 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.exc import StaleDataError
 
 from app.application.memory.dto import (
     ExtractionOutcome,
@@ -146,9 +148,13 @@ class MemoryService:
             memory.importance = command.importance
         if command.status is not None:
             memory.status = command.status
+        if restored:
+            # An active memory that still names a replacement contradicts itself;
+            # the user bringing it back is the user overruling that replacement.
+            memory.superseded_by_id = None
 
         self._record_version(memory, MemoryChange.UPDATED, reason="edited by the user")
-        await self._session.commit()
+        await self._commit_unless_deleted(memory_id, user_id)
 
         # Refresh the DB-generated updated_at while still in async context.
         await self._session.refresh(memory)
@@ -164,8 +170,15 @@ class MemoryService:
         about themselves should have it gone rather than hidden behind a flag,
         and PRD 32 puts that under privacy. ARCHIVED covers "keep it, stop using
         it"; this is the other thing.
+
+        Its events go with it. Each one repeats the memory's text as its
+        description, and the foreign key only nulls the link, so without this
+        the deleted words would survive in the events table. Totals computed
+        from events drop accordingly, which is what deleting a record of an
+        activity means.
         """
         memory = await self._require(memory_id, user_id)
+        await self._events.delete_for_memory(memory.id, user_id)
         await self._memories.delete(memory)
         await self._session.commit()
 
@@ -203,6 +216,23 @@ class MemoryService:
 
         memory.embedding = vector
         memory.embedding_model = self._embedding_model
+
+    async def _commit_unless_deleted(self, memory_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        """Commit an edit, reporting a memory deleted mid-edit as not found.
+
+        An edit can wait on the embedding provider between loading the row and
+        committing, and a delete can land in that gap. The UPDATE then matches
+        no row, or the history row loses its parent, and either surfaced as a
+        500. Re-reading after the rollback tells that race apart from a real
+        fault, which is still raised.
+        """
+        try:
+            await self._session.commit()
+        except (StaleDataError, IntegrityError):
+            await self._session.rollback()
+            if await self._memories.get_owned_by(memory_id, user_id) is None:
+                raise MemoryNotFoundError() from None
+            raise
 
     async def _require(self, memory_id: uuid.UUID, user_id: uuid.UUID) -> Memory:
         memory = await self._memories.get_owned_by(memory_id, user_id)
