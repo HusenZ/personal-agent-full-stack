@@ -6,6 +6,7 @@ from app.api.v1 import (
     auth,
     chat,
     conversations,
+    events,
     memories,
     onboarding,
     plans,
@@ -24,5 +25,6 @@ api_router.include_router(plans.router)
 api_router.include_router(chat.router)
 api_router.include_router(conversations.router)
 api_router.include_router(memories.router)
+api_router.include_router(events.router)
 api_router.include_router(runs.router)
 api_router.include_router(subscription.router)

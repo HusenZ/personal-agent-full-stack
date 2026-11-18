@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -7,6 +7,10 @@ from app.domain.temporal.ranges import (
     TimeRange,
     TimeRangeSpec,
     describe,
+    local_date,
+    local_day_bounds,
+    local_midday,
+    local_midday_on,
     resolve_range,
     resolve_timezone,
 )
@@ -190,3 +194,57 @@ class TestDescribe:
         result = TimeRange(start=SATURDAY, end=None, spec=TimeRangeSpec.ALL_TIME)
 
         assert describe(result) == "an open period"
+
+
+class TestLocalDays:
+    def test_bounds_cover_both_days_named_and_end_at_the_next_midnight(self):
+        zone = ZoneInfo("Asia/Kolkata")
+
+        start, end = local_day_bounds(date(2026, 3, 10), date(2026, 3, 12), zone)
+
+        assert start is not None and end is not None
+        assert start.astimezone(zone) == datetime(2026, 3, 10, tzinfo=zone)
+        assert end.astimezone(zone) == datetime(2026, 3, 13, tzinfo=zone)
+
+    def test_an_omitted_side_is_left_open(self):
+        zone = ZoneInfo("UTC")
+
+        assert local_day_bounds(None, date(2026, 3, 12), zone)[0] is None
+        assert local_day_bounds(date(2026, 3, 10), None, zone)[1] is None
+        assert local_day_bounds(None, None, zone) == (None, None)
+
+    def test_a_day_that_loses_an_hour_is_still_one_whole_day(self):
+        """New York springs forward on 2026-03-08, so that day is 23 hours long."""
+        zone = ZoneInfo("America/New_York")
+
+        start, end = local_day_bounds(date(2026, 3, 8), date(2026, 3, 8), zone)
+
+        assert start is not None and end is not None
+        assert end - start == timedelta(hours=23)
+
+    def test_the_calendar_limits_the_filters_allow_do_not_overflow(self):
+        for zone in ("Pacific/Kiritimati", "Etc/GMT+12"):
+            local_day_bounds(date(1900, 1, 1), date(2999, 12, 31), ZoneInfo(zone))
+
+    @pytest.mark.parametrize(
+        "zone", ["UTC", "Asia/Kolkata", "America/Los_Angeles", "Pacific/Kiritimati", "Etc/GMT+12"]
+    )
+    def test_midday_on_a_day_reads_back_as_that_day(self, zone: str):
+        """What makes a corrected date land where the date filter looks for it,
+        including where midday is on the other side of the date line in UTC."""
+        placed = local_midday_on(date(2026, 11, 17), ZoneInfo(zone))
+
+        assert local_date(placed, ZoneInfo(zone)) == date(2026, 11, 17)
+        start, end = local_day_bounds(date(2026, 11, 17), date(2026, 11, 17), ZoneInfo(zone))
+        assert start is not None and end is not None
+        assert start <= placed < end
+
+    def test_extraction_and_correction_place_a_day_identically(self):
+        now = datetime(2026, 11, 17, 3, 0, tzinfo=UTC)
+        zone = "Pacific/Auckland"
+
+        extracted = local_midday(2, now, zone)
+        two_days_back = local_date(now, ZoneInfo(zone)) - timedelta(days=2)
+        corrected = local_midday_on(two_days_back, ZoneInfo(zone))
+
+        assert extracted == corrected

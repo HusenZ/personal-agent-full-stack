@@ -54,3 +54,21 @@ class ServiceUnavailableError(ApplicationError):
 
     code = "SERVICE_UNAVAILABLE"
     message = "The service is temporarily unavailable. Please try again."
+
+
+class InvalidRequestError(ApplicationError):
+    """Well-formed input that cannot be applied.
+
+    For rules that need more than the request to check: the stored record a
+    partial update lands on, or the user's own date. Reported like a schema
+    validation failure, naming the field, so a client handles both the same way;
+    the code says which rule it broke.
+    """
+
+    code = "INVALID_REQUEST"
+    message = "The request cannot be applied."
+
+    def __init__(self, field: str, message: str | None = None) -> None:
+        super().__init__(message)
+        # Dotted location, as validation errors report it, e.g. "body.quantity".
+        self.field = field

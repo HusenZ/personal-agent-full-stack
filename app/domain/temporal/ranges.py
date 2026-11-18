@@ -158,4 +158,42 @@ def local_midday(days_ago: int, now: datetime, timezone: str | None) -> datetime
     """
     zone = resolve_timezone(timezone)
     local_day = (now.astimezone(zone) - timedelta(days=days_ago)).date()
-    return datetime.combine(local_day, time(hour=12), tzinfo=zone).astimezone(UTC)
+    return local_midday_on(local_day, zone)
+
+
+def local_midday_on(day: date, zone: ZoneInfo) -> datetime:
+    """Midday of a calendar day in a zone, as a UTC instant.
+
+    The one place a known local day becomes a stored instant, shared by
+    extraction and by a user correcting an event's date, so both place events
+    the same way and a corrected event lands where the date filter expects it.
+    """
+    return datetime.combine(day, time(hour=12), tzinfo=zone).astimezone(UTC)
+
+
+def local_date(moment: datetime, zone: ZoneInfo) -> date:
+    """The calendar day a stored instant falls on for someone in ``zone``."""
+    return moment.astimezone(zone).date()
+
+
+def local_day_bounds(
+    first: date | None, last: date | None, zone: ZoneInfo
+) -> tuple[datetime | None, datetime | None]:
+    """UTC boundaries covering whole local days, ``first`` to ``last`` inclusive.
+
+    Returned half-open, [start, end), like every other range here: the end is
+    the midnight that begins the day after ``last``. Either side may be None,
+    leaving that side unbounded. Callers keep the dates well inside the
+    calendar's limits, since the day after 9999-12-31 does not exist.
+    """
+    start = (
+        datetime.combine(first, time.min, tzinfo=zone).astimezone(UTC)
+        if first is not None
+        else None
+    )
+    end = (
+        datetime.combine(last + timedelta(days=1), time.min, tzinfo=zone).astimezone(UTC)
+        if last is not None
+        else None
+    )
+    return start, end

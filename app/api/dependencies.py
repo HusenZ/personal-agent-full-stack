@@ -11,6 +11,7 @@ from app.application.analysis.service import AnalysisService
 from app.application.auth.exceptions import InactiveUserError
 from app.application.auth.service import AuthService
 from app.application.conversation.service import ConversationService, ExtractionSettings
+from app.application.events.service import EventService
 from app.application.export.service import ExportService
 from app.application.memory.service import MemoryService
 from app.application.onboarding.service import OnboardingService
@@ -207,8 +208,15 @@ def get_memory_service(
     )
 
 
+def get_event_service(session: SessionDep) -> EventService:
+    return EventService(
+        session=session, events=EventRepository(session), profiles=ProfileRepository(session)
+    )
+
+
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 MemoryServiceDep = Annotated[MemoryService, Depends(get_memory_service)]
+EventServiceDep = Annotated[EventService, Depends(get_event_service)]
 ConversationServiceDep = Annotated[ConversationService, Depends(get_conversation_service)]
 AnalysisServiceDep = Annotated[AnalysisService, Depends(get_analysis_service)]
 PlanningServiceDep = Annotated[PlanningService, Depends(get_planning_service)]

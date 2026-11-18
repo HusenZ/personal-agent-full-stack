@@ -377,6 +377,9 @@ device on it.
 | `GET /api/v1/memories`         | What is remembered about you.                    |
 | `PATCH /api/v1/memories/{id}`  | Correct or archive a memory.                     |
 | `DELETE /api/v1/memories/{id}` | Delete a memory permanently.                     |
+| `GET /api/v1/events`           | What you have done, newest first. Filter by `activity` (repeatable) and by `start_date`/`end_date`, inclusive days in your time zone. |
+| `PATCH /api/v1/events/{id}`    | Correct an event's activity, description, date, quantity or unit. |
+| `DELETE /api/v1/events/{id}`   | Delete one event permanently. Its memory is kept. |
 | `GET /api/v1/runs/{id}`        | Summary of one of your agent runs.               |
 | `GET /api/v1/runs/{id}/trace`  | That run step by step: timings, calls, outcome.  |
 | `GET /api/v1/subscription`     | Your plan and this month's usage of each metered feature. |
@@ -1891,6 +1894,71 @@ whose vector search would skip (see
 [Backfilling embeddings](#backfilling-embeddings)).
 
 `MEMORY_EXTRACTION_ENABLED=false` turns extraction off: no jobs are queued.
+
+### Events
+
+Events are the records exact totals are summed from (see
+[Events are separate from memories](#events-are-separate-from-memories)), so a
+user can list, correct and delete them directly under `/api/v1/events`. The
+shapes follow `/memories`: the same page envelope, field-named `422`s, and the
+same `404` for a missing id and for someone else's.
+
+**Every date is a calendar day in the profile's time zone**, which is the zone
+the chat's totals use. Each event is returned with its `date` in that zone, its
+stored `occurred_at` instant, and the `timezone` applied. That is UTC when the
+profile's zone is missing or not recognised, and the response says so rather
+than hiding it. `start_date` and `end_date` are inclusive, and either can be
+left out. Because the list and the totals read days the same way, an event
+listed on a day is counted in that day's totals.
+
+Dates are `YYYY-MM-DD` only. Pydantic would also accept
+`2026-11-01T00:00:00` or a midnight Unix timestamp. Either suggests a client
+that thinks it is sending an instant, so both are refused instead of being
+silently cut to a day. A corrected date is placed at local midday, exactly as
+extraction places events, and cannot be after the user's own today: an event is
+something that already happened.
+
+The list is newest first. Every event on the same day shares one instant, so
+order falls back to when each was recorded and then to id, and pages never
+overlap or skip. `activity` matches after the same trimming and lowercasing
+extraction applies, and matches exactly: `run` does not find `running`, because
+the totals group by exact label and the filter should show what they count.
+Repeat the parameter to match any of several.
+
+`PATCH` distinguishes an absent field from `null`. Only `quantity` and `unit`
+can be cleared, since an occurrence may have no amount. Activity, description
+and date can only be replaced. **An amount and its unit must end up both set or
+both empty.** Totals are grouped by unit and shown only with one, so a quantity
+without a unit would be summed but never shown. The check runs against the
+stored row under a row lock, so two concurrent edits cannot each pass and
+together leave half an amount. Rows that extraction stored incomplete can
+still have their other fields edited. The error names the field to send:
+
+| Status | Code | When |
+|---|---|---|
+| `401` | `UNAUTHENTICATED` | No or invalid token. |
+| `404` | `EVENT_NOT_FOUND` | No such event, or not yours. |
+| `422` | `VALIDATION_ERROR` | A malformed value, an empty update, or `null` for activity, description or date. |
+| `422` | `EVENT_AMOUNT_INCOMPLETE` | The update would leave a quantity without a unit, or a unit without a quantity. |
+| `422` | `EVENT_DATE_IN_FUTURE` | The date is after today in your time zone. |
+| `422` | `INVALID_DATE_RANGE` | `end_date` is before `start_date`. |
+
+Editing or deleting an event never touches the memory it was recorded with. A
+restated event reinforces one memory but records an event each time, so one
+memory can carry several occurrences, and fixing one says nothing about the
+others. Deleting a memory still removes all of its events, since each repeats
+the memory's text.
+
+`DELETE` removes exactly one occurrence. It is a single statement on the
+primary key with ownership in the `WHERE`, and it commits only if exactly one
+row went. The schema guarantees the rest: an event is the child in each of its
+foreign keys, and nothing references it. Its memory and its sibling occurrences
+cannot be reached by removing it, and a test pins those constraints. Totals
+change on the very next query, since nothing in between is cached. A second
+delete, or a delete of someone else's event, answers `404 EVENT_NOT_FOUND`. A
+delete and a concurrent edit serialise on the row's lock. The edit reads back
+its own result before committing, so a delete queued behind it cannot turn a
+saved edit into a `500`. Before that was fixed, it did.
 
 ### Conversations
 

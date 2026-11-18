@@ -15,6 +15,7 @@ from app.core.exceptions import (
     ApplicationError,
     AuthenticationError,
     ConflictError,
+    InvalidRequestError,
     NotFoundError,
     PermissionDeniedError,
     RateLimitedError,
@@ -30,6 +31,7 @@ _STATUS_BY_ERROR: dict[type[ApplicationError], int] = {
     PermissionDeniedError: status.HTTP_403_FORBIDDEN,
     QuotaExceededError: status.HTTP_402_PAYMENT_REQUIRED,
     ConflictError: status.HTTP_409_CONFLICT,
+    InvalidRequestError: status.HTTP_422_UNPROCESSABLE_CONTENT,
     RateLimitedError: status.HTTP_429_TOO_MANY_REQUESTS,
     ServiceUnavailableError: status.HTTP_503_SERVICE_UNAVAILABLE,
     ApplicationError: status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -106,6 +108,9 @@ async def handle_application_error(_: Request, exc: ApplicationError) -> JSONRes
 
 
 def _error_details(exc: ApplicationError) -> list[dict[str, Any]] | None:
+    # Same shape as a schema validation failure, so clients handle both alike.
+    if isinstance(exc, InvalidRequestError):
+        return [{"field": exc.field, "message": exc.message, "type": exc.code.lower()}]
     # Lets the client show what ran out, when it resets, and offer an upgrade.
     if isinstance(exc, QuotaExceededError):
         return [
